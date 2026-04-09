@@ -93,22 +93,78 @@ def build_job_snapshot(raw_job: dict[str, Any], normalized_job: dict[str, Any]) 
     return payload
 
 
-def _filter_normalized_jobs(normalized_jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    valid_jobs: list[dict[str, Any]] = []
+def _filter_job_pairs(
+    raw_jobs: list[dict[str, Any]],
+    normalized_jobs: list[dict[str, Any]],
+) -> tuple[list[tuple[dict[str, Any], dict[str, Any]]], int]:
+    valid_pairs: list[tuple[dict[str, Any], dict[str, Any]]] = []
     invalid_count = 0
 
-    for job in normalized_jobs:
-        if not job.get("detail_url"):
+    for raw_job, normalized_job in zip(raw_jobs, normalized_jobs):
+        if not normalized_job.get("detail_url"):
             invalid_count += 1
             continue
 
-        if _is_excluded_employer(job.get("company")):
+        if _is_excluded_employer(normalized_job.get("company")):
             continue
 
-        if job.get("detail_url"):
-            valid_jobs.append(job)
+        valid_pairs.append((raw_job, normalized_job))
 
-    return valid_jobs, invalid_count
+    return valid_pairs, invalid_count
+
+
+def _company_dedupe_key(job: dict[str, Any]) -> str | None:
+    normalized_company = _normalize_for_matching(job.get("company"))
+    if normalized_company:
+        return normalized_company
+
+    detail_url = _clean_text(job.get("detail_url"))
+    if detail_url:
+        return f"detail:{detail_url}"
+
+    return None
+
+
+def _apply_company_limit(
+    raw_jobs: list[dict[str, Any]],
+    normalized_jobs: list[dict[str, Any]],
+    *,
+    company_limit: int | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, int]:
+    available_company_keys = {
+        company_key
+        for job in normalized_jobs
+        if (company_key := _company_dedupe_key(job)) is not None
+    }
+
+    if company_limit is None:
+        return raw_jobs, normalized_jobs, len(available_company_keys), len(available_company_keys)
+
+    selected_raw_jobs: list[dict[str, Any]] = []
+    selected_normalized_jobs: list[dict[str, Any]] = []
+    seen_company_keys: set[str] = set()
+
+    for raw_job, normalized_job in zip(raw_jobs, normalized_jobs):
+        company_key = _company_dedupe_key(normalized_job)
+        if company_key is None:
+            continue
+
+        if company_key in seen_company_keys:
+            continue
+
+        seen_company_keys.add(company_key)
+        selected_raw_jobs.append(raw_job)
+        selected_normalized_jobs.append(normalized_job)
+
+        if len(selected_normalized_jobs) >= company_limit:
+            break
+
+    return (
+        selected_raw_jobs,
+        selected_normalized_jobs,
+        len(available_company_keys),
+        len(selected_normalized_jobs),
+    )
 
 
 def _run_scrape_and_store(
@@ -118,6 +174,7 @@ def _run_scrape_and_store(
     scraper: Callable[..., list[dict[str, Any]]],
     scraper_kwargs: dict[str, Any],
     normalizer: Callable[[dict[str, Any], str], dict[str, Any]],
+    company_limit: int | None = None,
     storage: SupabaseStorage | None = None,
 ) -> dict[str, Any]:
     storage = storage or get_supabase_storage()
@@ -133,6 +190,9 @@ def _run_scrape_and_store(
         "error": None,
         "automation_campaign_ids": [],
         "automation_errors": [],
+        "company_limit": company_limit,
+        "available_company_count": 0,
+        "selected_company_count": 0,
     }
 
     try:
@@ -140,12 +200,27 @@ def _run_scrape_and_store(
         summary["scraped_count"] = len(raw_jobs)
 
         normalized_jobs = [normalizer(job, run_id) for job in raw_jobs]
-        valid_jobs, invalid_count = _filter_normalized_jobs(normalized_jobs)
+        valid_pairs, invalid_count = _filter_job_pairs(raw_jobs, normalized_jobs)
         summary["failed_count"] = invalid_count
 
-        if valid_jobs:
-            summary["upserted_count"] = storage.upsert_jobs(valid_jobs)
-            valid_detail_urls = {job["detail_url"] for job in valid_jobs}
+        selected_raw_jobs = [raw_job for raw_job, _ in valid_pairs]
+        selected_valid_jobs = [normalized_job for _, normalized_job in valid_pairs]
+        (
+            selected_raw_jobs,
+            selected_valid_jobs,
+            available_company_count,
+            selected_company_count,
+        ) = _apply_company_limit(
+            selected_raw_jobs,
+            selected_valid_jobs,
+            company_limit=company_limit,
+        )
+        summary["available_company_count"] = available_company_count
+        summary["selected_company_count"] = selected_company_count
+
+        if selected_valid_jobs:
+            summary["upserted_count"] = storage.upsert_jobs(selected_valid_jobs)
+            selected_detail_urls = {job["detail_url"] for job in selected_valid_jobs}
             snapshots = [
                 {
                     "run_id": run_id,
@@ -154,8 +229,8 @@ def _run_scrape_and_store(
                     "job_payload": build_job_snapshot(raw_job, normalized_job),
                     "scraped_at": _utcnow_iso(),
                 }
-                for raw_job, normalized_job in zip(raw_jobs, normalized_jobs)
-                if normalized_job.get("detail_url") in valid_detail_urls
+                for raw_job, normalized_job in zip(selected_raw_jobs, selected_valid_jobs)
+                if normalized_job.get("detail_url") in selected_detail_urls
             ]
             summary["snapshot_count"] = storage.insert_job_snapshots(snapshots)
 
@@ -192,6 +267,7 @@ def _run_scrape_and_store(
 def scrape_and_store_hzz(
     max_pages: int = 3,
     category: str | None = None,
+    company_limit: int | None = None,
     *,
     storage: SupabaseStorage | None = None,
     scraper: Callable[..., list[dict[str, Any]]] | None = None,
@@ -206,10 +282,11 @@ def scrape_and_store_hzz(
 
     return _run_scrape_and_store(
         source="hzz",
-        filters={"max_pages": max_pages, "category": category},
+        filters={"max_pages": max_pages, "category": category, "company_limit": company_limit},
         scraper=scraper,
-        scraper_kwargs={"max_pages": max_pages, "category": category},
+        scraper_kwargs={"max_pages": max_pages, "category": category, "company_limit": company_limit},
         normalizer=_normalizer,
+        company_limit=company_limit,
         storage=storage,
     )
 
@@ -218,6 +295,7 @@ def scrape_and_store_mojposao(
     keyword: str = "",
     max_clicks: int = 5,
     category: str | None = None,
+    company_limit: int | None = None,
     *,
     storage: SupabaseStorage | None = None,
     scraper: Callable[..., list[dict[str, Any]]] | None = None,
@@ -232,9 +310,10 @@ def scrape_and_store_mojposao(
 
     return _run_scrape_and_store(
         source="mojposao",
-        filters={"keyword": keyword, "max_clicks": max_clicks, "category": category},
+        filters={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
         scraper=scraper,
-        scraper_kwargs={"keyword": keyword, "max_clicks": max_clicks, "category": category},
+        scraper_kwargs={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
         normalizer=_normalizer,
+        company_limit=company_limit,
         storage=storage,
     )

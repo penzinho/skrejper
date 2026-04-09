@@ -142,7 +142,7 @@ Send the API key in the `x-api-key` header:
 curl -X POST http://127.0.0.1:8000/scrapers/hzz \
   -H 'content-type: application/json' \
   -H 'x-api-key: your-api-key' \
-  -d '{"max_pages": 2, "category": "it", "async_job": false}'
+  -d '{"max_pages": 2, "category": "it", "company_limit": 300, "async_job": false}'
 ```
 
 Queued example:
@@ -151,10 +151,12 @@ Queued example:
 curl -X POST http://127.0.0.1:8000/scrapers/mojposao \
   -H 'content-type: application/json' \
   -H 'x-api-key: your-api-key' \
-  -d '{"keyword": "python", "max_clicks": 3, "async_job": true}'
+  -d '{"keyword": "python", "max_clicks": 3, "company_limit": 300, "async_job": true}'
 ```
 
 If the header is missing or invalid, the API returns `401 Invalid API key`.
+
+Use the category catalog endpoints to populate frontend dropdowns, then submit the selected category key with the scrape request. `company_limit` is optional and means "return up to this many unique companies; if fewer exist, return all available."
 
 ## Queue Flow
 

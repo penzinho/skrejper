@@ -291,6 +291,9 @@ class ScrapeSummaryResponse(BaseModel):
     error: str | None = None
     automation_campaign_ids: list[str] = Field(default_factory=list)
     automation_errors: list[str] = Field(default_factory=list)
+    company_limit: int | None = None
+    available_company_count: int = 0
+    selected_company_count: int = 0
 
 
 class QueuedTaskResponse(BaseModel):
@@ -312,6 +315,7 @@ class TaskStatusResponse(BaseModel):
 class HZZScrapeRequest(BaseModel):
     max_pages: int = Field(default=3, ge=1)
     category: str | None = None
+    company_limit: int | None = Field(default=None, ge=1)
     async_job: bool = True
 
 
@@ -319,6 +323,7 @@ class MojPosaoScrapeRequest(BaseModel):
     keyword: str = ""
     max_clicks: int = Field(default=5, ge=1)
     category: str | None = None
+    company_limit: int | None = Field(default=None, ge=1)
     async_job: bool = True
 
 
@@ -459,8 +464,8 @@ app.add_middleware(
 app.add_middleware(OriginValidationMiddleware, allowed_origins=allowed_origins)
 
 
-def rate_limit(limit: int, window_seconds: int = 60):
-    return Depends(rate_limiter.dependency(limit=limit, window_seconds=window_seconds))
+def rate_limit(limit: int, window_seconds: int = 60, scope: str | None = None):
+    return Depends(rate_limiter.dependency(limit=limit, window_seconds=window_seconds, scope=scope))
 
 
 def _raise_for_failed_summary(summary: dict) -> None:
@@ -497,6 +502,12 @@ def require_scraper_api_key(
 
 ProtectedScraperRoute = Annotated[None, Depends(require_scraper_api_key)]
 
+HZZ_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/hzz/categories")]
+MOJPOSAO_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/mojposao/categories")]
+HZZ_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/hzz")]
+MOJPOSAO_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/mojposao")]
+RUN_ALL_SCRAPERS_RATE_LIMIT = [rate_limit(5, 60, scope="POST:/scrapers/run-all")]
+
 
 def _queue_response(task_name: str, **kwargs) -> JSONResponse:
     task = _run_service(enqueue_task, task_name, **kwargs)
@@ -517,31 +528,54 @@ def health() -> dict[str, datetime | str]:
     return {"status": "ok", "time": _utcnow()}
 
 
-@app.get("/scrapers/hzz/categories", dependencies=[rate_limit(60, 60)])
+@app.get("/api/scrapers/hzz/categories", dependencies=HZZ_CATEGORIES_RATE_LIMIT, include_in_schema=False)
+@app.get("/scrapers/hzz/categories", dependencies=HZZ_CATEGORIES_RATE_LIMIT)
 def list_hzz_categories() -> list[dict[str, str]]:
     return get_hzz_categories()
 
 
-@app.get("/scrapers/mojposao/categories", dependencies=[rate_limit(60, 60)])
+@app.get("/api/scrapers/mojposao/categories", dependencies=MOJPOSAO_CATEGORIES_RATE_LIMIT, include_in_schema=False)
+@app.get("/scrapers/mojposao/categories", dependencies=MOJPOSAO_CATEGORIES_RATE_LIMIT)
 def list_mojposao_categories() -> list[dict[str, str]]:
     return get_mojposao_categories()
 
 
-@app.post("/scrapers/hzz", response_model=ScrapeSummaryResponse | QueuedTaskResponse, dependencies=[rate_limit(10, 60)])
+@app.post(
+    "/api/scrapers/hzz",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=HZZ_SCRAPER_RATE_LIMIT,
+    include_in_schema=False,
+)
+@app.post("/scrapers/hzz", response_model=ScrapeSummaryResponse | QueuedTaskResponse, dependencies=HZZ_SCRAPER_RATE_LIMIT)
 def run_hzz_scraper(payload: HZZScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
     if _should_enqueue(payload.async_job):
         return _queue_response(
             "app.tasks.scrape_hzz",
             max_pages=payload.max_pages,
             category=payload.category,
+            company_limit=payload.company_limit,
         )
 
-    summary = scrape_and_store_hzz(max_pages=payload.max_pages, category=payload.category)
+    summary = scrape_and_store_hzz(
+        max_pages=payload.max_pages,
+        category=payload.category,
+        company_limit=payload.company_limit,
+    )
     _raise_for_failed_summary(summary)
     return summary
 
 
-@app.post("/scrapers/mojposao", response_model=ScrapeSummaryResponse | QueuedTaskResponse, dependencies=[rate_limit(10, 60)])
+@app.post(
+    "/api/scrapers/mojposao",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=MOJPOSAO_SCRAPER_RATE_LIMIT,
+    include_in_schema=False,
+)
+@app.post(
+    "/scrapers/mojposao",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=MOJPOSAO_SCRAPER_RATE_LIMIT,
+)
 def run_mojposao_scraper(payload: MojPosaoScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
     if _should_enqueue(payload.async_job):
         return _queue_response(
@@ -549,18 +583,30 @@ def run_mojposao_scraper(payload: MojPosaoScrapeRequest, _: ProtectedScraperRout
             keyword=payload.keyword,
             max_clicks=payload.max_clicks,
             category=payload.category,
+            company_limit=payload.company_limit,
         )
 
     summary = scrape_and_store_mojposao(
         keyword=payload.keyword,
         max_clicks=payload.max_clicks,
         category=payload.category,
+        company_limit=payload.company_limit,
     )
     _raise_for_failed_summary(summary)
     return summary
 
 
-@app.post("/scrapers/run-all", response_model=RunAllScrapersResponse | QueuedTaskResponse, dependencies=[rate_limit(5, 60)])
+@app.post(
+    "/api/scrapers/run-all",
+    response_model=RunAllScrapersResponse | QueuedTaskResponse,
+    dependencies=RUN_ALL_SCRAPERS_RATE_LIMIT,
+    include_in_schema=False,
+)
+@app.post(
+    "/scrapers/run-all",
+    response_model=RunAllScrapersResponse | QueuedTaskResponse,
+    dependencies=RUN_ALL_SCRAPERS_RATE_LIMIT,
+)
 def run_all_scrapers(payload: RunAllScrapersRequest, _: ProtectedScraperRoute) -> dict[str, list[dict]] | JSONResponse:
     if _should_enqueue(payload.async_job):
         return _queue_response(
@@ -568,20 +614,27 @@ def run_all_scrapers(payload: RunAllScrapersRequest, _: ProtectedScraperRoute) -
             hzz={
                 "max_pages": payload.hzz.max_pages,
                 "category": payload.hzz.category,
+                "company_limit": payload.hzz.company_limit,
             },
             mojposao={
                 "keyword": payload.mojposao.keyword,
                 "max_clicks": payload.mojposao.max_clicks,
                 "category": payload.mojposao.category,
+                "company_limit": payload.mojposao.company_limit,
             },
         )
 
     results = [
-        scrape_and_store_hzz(max_pages=payload.hzz.max_pages, category=payload.hzz.category),
+        scrape_and_store_hzz(
+            max_pages=payload.hzz.max_pages,
+            category=payload.hzz.category,
+            company_limit=payload.hzz.company_limit,
+        ),
         scrape_and_store_mojposao(
             keyword=payload.mojposao.keyword,
             max_clicks=payload.mojposao.max_clicks,
             category=payload.mojposao.category,
+            company_limit=payload.mojposao.company_limit,
         ),
     ]
 

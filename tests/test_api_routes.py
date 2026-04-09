@@ -78,6 +78,58 @@ class ApiRoutesTests(unittest.TestCase):
         self.assertEqual(limited_response.status_code, 429)
         self.assertEqual(categories_response.status_code, 200)
 
+    def test_prefixed_category_routes_are_available(self):
+        hzz_response = self.client.get("/api/scrapers/hzz/categories")
+        mojposao_response = self.client.get("/api/scrapers/mojposao/categories")
+
+        self.assertEqual(hzz_response.status_code, 200)
+        self.assertEqual(mojposao_response.status_code, 200)
+        self.assertIsInstance(hzz_response.json(), list)
+        self.assertIsInstance(mojposao_response.json(), list)
+
+    @patch("app.api.main.enqueue_task")
+    def test_prefixed_scraper_route_alias_queues_hzz_scraper(self, enqueue_task_mock):
+        enqueue_task_mock.return_value = {
+            "task_id": "task-prefixed-1",
+            "task_name": "app.tasks.scrape_hzz",
+            "status": "queued",
+            "queued_at": "2026-04-09T10:00:00+00:00",
+        }
+
+        response = self.client.post(
+            "/api/scrapers/hzz",
+            json={"max_pages": 2, "category": "it"},
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["task_id"], "task-prefixed-1")
+        enqueue_task_mock.assert_called_once_with(
+            "app.tasks.scrape_hzz",
+            max_pages=2,
+            category="it",
+            company_limit=None,
+        )
+
+    @patch("app.api.main.enqueue_task")
+    def test_scraper_rate_limit_is_shared_between_root_and_prefixed_alias(self, enqueue_task_mock):
+        enqueue_task_mock.return_value = {
+            "task_id": "task-shared-limit",
+            "task_name": "app.tasks.scrape_hzz",
+            "status": "queued",
+            "queued_at": "2026-04-09T10:00:00+00:00",
+        }
+        headers = self._headers_for_ip("198.51.100.31", include_api_key=True)
+
+        for _ in range(10):
+            response = self.client.post("/scrapers/hzz", json={"max_pages": 1}, headers=headers)
+            self.assertEqual(response.status_code, 202)
+
+        limited_response = self.client.post("/api/scrapers/hzz", json={"max_pages": 1}, headers=headers)
+
+        self.assertEqual(limited_response.status_code, 429)
+        self.assertEqual(limited_response.json()["detail"], "Rate limit exceeded")
+
     @patch("app.api.main.enqueue_task")
     def test_scraper_route_returns_429_after_ip_rate_limit_is_exceeded(self, enqueue_task_mock):
         enqueue_task_mock.return_value = {
@@ -112,13 +164,22 @@ class ApiRoutesTests(unittest.TestCase):
 
         response = self.client.post(
             "/scrapers/hzz",
-            json={"max_pages": 4, "category": "hospitality_tourism", "async_job": False},
+            json={
+                "max_pages": 4,
+                "category": "hospitality_tourism",
+                "company_limit": 300,
+                "async_job": False,
+            },
             headers=self._auth_headers(),
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["run_id"], "run-hzz-1")
-        scrape_and_store_hzz_mock.assert_called_once_with(max_pages=4, category="hospitality_tourism")
+        scrape_and_store_hzz_mock.assert_called_once_with(
+            max_pages=4,
+            category="hospitality_tourism",
+            company_limit=300,
+        )
 
     @patch("app.api.main.enqueue_task")
     def test_run_hzz_scraper_route_queues_by_default(self, enqueue_task_mock):
@@ -131,7 +192,7 @@ class ApiRoutesTests(unittest.TestCase):
 
         response = self.client.post(
             "/scrapers/hzz",
-            json={"max_pages": 4, "category": "hospitality_tourism"},
+            json={"max_pages": 4, "category": "hospitality_tourism", "company_limit": 300},
             headers=self._auth_headers(),
         )
 
@@ -141,6 +202,7 @@ class ApiRoutesTests(unittest.TestCase):
             "app.tasks.scrape_hzz",
             max_pages=4,
             category="hospitality_tourism",
+            company_limit=300,
         )
 
     @patch("app.api.main.enqueue_task")
@@ -164,6 +226,7 @@ class ApiRoutesTests(unittest.TestCase):
             "app.tasks.scrape_hzz",
             max_pages=4,
             category="hospitality_tourism",
+            company_limit=None,
         )
 
     @patch("app.api.main.scrape_and_store_mojposao")
@@ -181,7 +244,13 @@ class ApiRoutesTests(unittest.TestCase):
 
         response = self.client.post(
             "/scrapers/mojposao",
-            json={"keyword": "python", "max_clicks": 3, "category": "it_telecommunications", "async_job": False},
+            json={
+                "keyword": "python",
+                "max_clicks": 3,
+                "category": "it_telecommunications",
+                "company_limit": 300,
+                "async_job": False,
+            },
             headers=self._auth_headers(),
         )
 
@@ -191,6 +260,7 @@ class ApiRoutesTests(unittest.TestCase):
             keyword="python",
             max_clicks=3,
             category="it_telecommunications",
+            company_limit=300,
         )
 
     @patch("app.api.main.scrape_and_store_mojposao")
@@ -212,6 +282,7 @@ class ApiRoutesTests(unittest.TestCase):
                 "keyword": "python",
                 "max_clicks": 3,
                 "category": "it_telecommunications",
+                "company_limit": 300,
                 "async_job": False,
             },
             headers=self._auth_headers(),
@@ -257,6 +328,7 @@ class ApiRoutesTests(unittest.TestCase):
                     "keyword": "backend",
                     "max_clicks": 2,
                     "category": "it_telecommunications",
+                    "company_limit": 300,
                     "async_job": False,
                 },
             },
@@ -265,11 +337,12 @@ class ApiRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["results"]), 2)
-        scrape_and_store_hzz_mock.assert_called_once_with(max_pages=2, category="it")
+        scrape_and_store_hzz_mock.assert_called_once_with(max_pages=2, category="it", company_limit=None)
         scrape_and_store_mojposao_mock.assert_called_once_with(
             keyword="backend",
             max_clicks=2,
             category="it_telecommunications",
+            company_limit=300,
         )
 
     @patch("app.api.main.scrape_and_store_hzz")

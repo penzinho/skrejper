@@ -262,6 +262,7 @@ Request body:
 {
   "max_pages": 3,
   "category": "it",
+  "company_limit": 300,
   "async_job": true
 }
 ```
@@ -270,6 +271,7 @@ Fields:
 
 - `max_pages`: integer, minimum `1`, default `3`
 - `category`: optional HZZ category key
+- `company_limit`: optional integer, minimum `1`; keeps up to this many unique companies and returns all available if fewer exist
 - `async_job`: boolean, default `true`
 
 Queued response:
@@ -296,7 +298,10 @@ Synchronous success response:
   "failed_count": 2,
   "error": null,
   "automation_campaign_ids": ["uuid"],
-  "automation_errors": []
+  "automation_errors": [],
+  "company_limit": 300,
+  "available_company_count": 187,
+  "selected_company_count": 187
 }
 ```
 
@@ -325,6 +330,7 @@ Request body:
   "keyword": "python",
   "max_clicks": 5,
   "category": "it_telecommunications",
+  "company_limit": 300,
   "async_job": true
 }
 ```
@@ -334,6 +340,7 @@ Fields:
 - `keyword`: string, default `""`
 - `max_clicks`: integer, minimum `1`, default `5`
 - `category`: optional MojPosao category key
+- `company_limit`: optional integer, minimum `1`; keeps up to this many unique companies and returns all available if fewer exist
 - `async_job`: boolean, default `true`
 
 Response:
@@ -365,12 +372,14 @@ Request body:
   "async_job": true,
   "hzz": {
     "max_pages": 2,
-    "category": "it"
+    "category": "it",
+    "company_limit": 300
   },
   "mojposao": {
     "keyword": "backend",
     "max_clicks": 2,
     "category": "it_telecommunications",
+    "company_limit": 300,
     "async_job": true
   }
 }
@@ -380,6 +389,7 @@ Important:
 
 - top-level `async_job` decides whether the whole endpoint is queued
 - nested `hzz.async_job` and `mojposao.async_job` are accepted by schema but ignored by this route
+- nested `company_limit` values are forwarded to each scraper independently
 
 Queued response:
 
@@ -1064,7 +1074,7 @@ Backed by:
 ### For scraping
 
 1. Load category options from the catalog endpoints
-2. Submit scrape request with `async_job: true`
+2. Submit scrape request with `max_pages`, selected `category`, optional `company_limit`, and `async_job: true`
 3. Poll `/queue/tasks/{task_id}`
 4. When complete, read the returned scrape summary
 5. If you need leads for outreach, call `/jobs/email-targets?run_id=...`

@@ -11,8 +11,16 @@ celery_app = get_celery_app()
 
 
 @celery_app.task(name="app.tasks.scrape_hzz")
-def scrape_hzz_task(max_pages: int = 3, category: str | None = None) -> dict:
-    return scrape_and_store_hzz(max_pages=max_pages, category=category)
+def scrape_hzz_task(
+    max_pages: int = 3,
+    category: str | None = None,
+    company_limit: int | None = None,
+) -> dict:
+    return scrape_and_store_hzz(
+        max_pages=max_pages,
+        category=category,
+        company_limit=company_limit,
+    )
 
 
 @celery_app.task(name="app.tasks.scrape_mojposao")
@@ -20,11 +28,13 @@ def scrape_mojposao_task(
     keyword: str = "",
     max_clicks: int = 5,
     category: str | None = None,
+    company_limit: int | None = None,
 ) -> dict:
     return scrape_and_store_mojposao(
         keyword=keyword,
         max_clicks=max_clicks,
         category=category,
+        company_limit=company_limit,
     )
 
 
@@ -40,11 +50,13 @@ def run_all_scrapers_task(
             scrape_and_store_hzz(
                 max_pages=int(hzz.get("max_pages", 3)),
                 category=hzz.get("category"),
+                company_limit=hzz.get("company_limit"),
             ),
             scrape_and_store_mojposao(
                 keyword=mojposao.get("keyword", ""),
                 max_clicks=int(mojposao.get("max_clicks", 5)),
                 category=mojposao.get("category"),
+                company_limit=mojposao.get("company_limit"),
             ),
         ]
     }

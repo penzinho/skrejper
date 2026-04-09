@@ -92,6 +92,13 @@ def _slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", ascii_only.casefold()).strip("_")
 
 
+def _company_limit_key(company: str, detail_url: str) -> str:
+    normalized_company = _slugify(company or "")
+    if normalized_company:
+        return normalized_company
+    return detail_url
+
+
 def _normalize_keyword(keyword: str) -> str:
     normalized = unicodedata.normalize("NFKD", keyword or "")
     ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
@@ -546,9 +553,16 @@ def _matches_selected_filters(job: dict, keyword: str, category: dict | None) ->
     return True
 
 
-def _extract_jobs(page: Page, detail_page: Page, keyword: str, category: dict | None) -> list[dict]:
+def _extract_jobs(
+    page: Page,
+    detail_page: Page,
+    keyword: str,
+    category: dict | None,
+    company_limit: int | None = None,
+) -> list[dict]:
     jobs: list[dict] = []
     seen_keys: set[tuple[str, str]] = set()
+    seen_company_keys: set[str] = set()
     listing_jobs = _collect_listing_jobs(page)
 
     for index, job in enumerate(listing_jobs):
@@ -564,15 +578,29 @@ def _extract_jobs(page: Page, detail_page: Page, keyword: str, category: dict | 
             if not _matches_selected_filters(job, keyword, category):
                 continue
 
+            if company_limit is not None:
+                company_key = _company_limit_key(job.get("company", ""), job["detail_url"])
+                if company_key in seen_company_keys:
+                    continue
+                seen_company_keys.add(company_key)
+
             jobs.append(job)
             seen_keys.add(dedupe_key)
+
+            if company_limit is not None and len(seen_company_keys) >= company_limit:
+                break
         except Exception as exc:
             print(f"[mojposao] Skipping broken card {index}: {exc}")
 
     return jobs
 
 
-def scrape_mojposao(keyword: str = "", max_clicks: int = 5, category: str | None = None) -> list[dict]:
+def scrape_mojposao(
+    keyword: str = "",
+    max_clicks: int = 5,
+    category: str | None = None,
+    company_limit: int | None = None,
+) -> list[dict]:
     headless = os.getenv("HEADLESS", "true") == "true"
     resolved_category = _resolve_category(category)
 
@@ -587,7 +615,13 @@ def scrape_mojposao(keyword: str = "", max_clicks: int = 5, category: str | None
             _wait_for_results(page)
             _apply_keyword_search(page, keyword, resolved_category)
             _load_all_jobs(page, max_clicks=max_clicks)
-            return _extract_jobs(page, detail_page, keyword, resolved_category)
+            return _extract_jobs(
+                page,
+                detail_page,
+                keyword,
+                resolved_category,
+                company_limit=company_limit,
+            )
         except PlaywrightTimeoutError as exc:
             print(f"[mojposao] Timeout while scraping: {exc}")
             return []

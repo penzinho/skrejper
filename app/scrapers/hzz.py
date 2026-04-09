@@ -120,6 +120,13 @@ def _slugify_category(value: str) -> str:
     return normalized.strip("_")
 
 
+def _company_limit_key(company: str, detail_url: str) -> str:
+    normalized_company = _slugify_category(company or "")
+    if normalized_company:
+        return normalized_company
+    return detail_url
+
+
 def get_hzz_categories() -> list[dict[str, str]]:
     return [{"key": key, "label": label} for key, label in HZZ_CATEGORIES.items()]
 
@@ -375,10 +382,15 @@ def _go_to_next_page(page: Page, current_page: int) -> bool:
         return False
 
 
-def scrape_hzz(max_pages: int = 3, category: str | None = None) -> list[dict]:
+def scrape_hzz(
+    max_pages: int = 3,
+    category: str | None = None,
+    company_limit: int | None = None,
+) -> list[dict]:
     headless = os.getenv("HEADLESS", "true") == "true"
     jobs: list[dict] = []
     seen_urls: set[str] = set()
+    seen_company_keys: set[str] = set()
     resolved_category = _resolve_category(category)
 
     with sync_playwright() as playwright:
@@ -405,11 +417,24 @@ def scrape_hzz(max_pages: int = 3, category: str | None = None) -> list[dict]:
                         detail_fields = _scrape_detail_page(detail_page, detail_url)
                         job.update(detail_fields)
                         job["source"] = "hzz"
+
+                        if company_limit is not None:
+                            company_key = _company_limit_key(job.get("company", ""), detail_url)
+                            if company_key in seen_company_keys:
+                                continue
+                            seen_company_keys.add(company_key)
+
                         jobs.append(job)
                         seen_urls.add(detail_url)
                         time.sleep(0.2)
+
+                        if company_limit is not None and len(seen_company_keys) >= company_limit:
+                            break
                 except Exception as exc:
                     print(f"[hzz] Failed while scraping listing page {page_number}: {exc}")
+
+                if company_limit is not None and len(seen_company_keys) >= company_limit:
+                    break
 
                 if page_number >= max_pages:
                     break
