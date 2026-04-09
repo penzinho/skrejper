@@ -13,6 +13,9 @@ EMAIL_RE = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b")
 PHONE_RE = re.compile(
     r"(?:(?:\+|00)\s*385[\s/.-]*)?(?:0\d[\d\s/.-]{5,}\d|\d{2,3}[\s/.-]*\d{3}[\s/.-]*\d{3,4})"
 )
+ADDRESS_RE = re.compile(
+    r"([A-ZČĆŠŽĐ][^,\n]{2,}?\d+[A-Za-z]?(?:/\d+[A-Za-z]?)?\s*,\s*\d{5}\s+[A-ZČĆŠŽĐ][^\n,]{2,})"
+)
 GENERIC_EMAILS = {"burzarada@hzz.hr"}
 DETAIL_SECTION_LABELS = [
     "Mjesto rada:",
@@ -78,6 +81,24 @@ def extract_phone(text: str) -> str:
     phone = re.sub(r"\s+", " ", match.group(0)).strip(" .,-;")
     digits = re.sub(r"\D", "", phone)
     return phone if len(digits) >= 6 else ""
+
+
+def extract_address(text: str) -> str:
+    for raw_line in (text or "").splitlines():
+        line = _clean_text(raw_line)
+        if not line or "mjesto rada" in line.casefold():
+            continue
+        if re.search(r"\d{5}\s+\S+", line):
+            sanitized = re.sub(
+                r"^(adresa|adresa poslodavca|sjedište|sjediste|kontakt|poslodavac)\s*:\s*",
+                "",
+                line,
+                flags=re.IGNORECASE,
+            )
+            return sanitized
+
+    match = ADDRESS_RE.search(text or "")
+    return _clean_text(match.group(1)) if match else ""
 
 
 def _clean_text(value: str) -> str:
@@ -266,6 +287,11 @@ def _extract_detail_fields(text: str) -> dict:
         "Posloprimac",
         ["Poslodavac"],
     )
+    poslodavac_info = _extract_section(
+        normalized_text,
+        "Poslodavac",
+        ["Kontakt:", "Uvjeti na radnom mjestu:", "Potrebna zvanja:", "Posloprimac"],
+    )
 
     return {
         "employees_needed": _extract_hzz_value(normalized_text, "Broj traženih radnika:"),
@@ -275,6 +301,7 @@ def _extract_detail_fields(text: str) -> dict:
         "valid_from": _extract_hzz_value(normalized_text, "Natječaj vrijedi od:"),
         "valid_to": _extract_hzz_value(normalized_text, "Natječaj vrijedi do:"),
         "jobseeker_info": posloprimac_info,
+        "employer_address": extract_address(poslodavac_info or normalized_text),
     }
 
 
@@ -292,6 +319,7 @@ def _scrape_detail_page(detail_page: Page, detail_url: str) -> dict:
         return {
             "email": "",
             "phone": "",
+            "employer_address": "",
             "employees_needed": "",
             "employment_type": "",
             "working_hours": "",
