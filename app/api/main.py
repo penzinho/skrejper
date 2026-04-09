@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from starlette.datastructures import Headers
 
@@ -32,6 +32,161 @@ from app.services.scrape_store import scrape_and_store_hzz, scrape_and_store_moj
 
 SCRAPER_API_KEY_ENV_VAR = "SCRAPER_API_KEY"
 CORS_ALLOW_ORIGINS_ENV_VAR = "CORS_ALLOW_ORIGINS"
+LANDING_PAGE_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skrejper API</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f1e8;
+      --panel: rgba(255, 255, 255, 0.82);
+      --text: #182127;
+      --muted: #5c6a73;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --border: rgba(24, 33, 39, 0.08);
+      --shadow: 0 24px 60px rgba(24, 33, 39, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.12), transparent 30%),
+        linear-gradient(135deg, #f8f5ee 0%, var(--bg) 55%, #ebe3d1 100%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(760px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(2.4rem, 6vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    p {
+      margin: 0;
+      max-width: 54ch;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 14px;
+      font-weight: 600;
+      transition: transform 140ms ease, background 140ms ease;
+    }
+
+    .button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .button.secondary {
+      background: rgba(24, 33, 39, 0.05);
+      color: var(--text);
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .meta {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    code {
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      color: var(--accent-strong);
+      background: rgba(15, 118, 110, 0.08);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 28px 22px;
+        border-radius: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="eyebrow">Production API</span>
+    <h1>Skrejper</h1>
+    <p>
+      Scraping backend for ProTalent. The service is online, secured with TLS, and available for
+      authenticated scraper runs and health monitoring.
+    </p>
+    <div class="actions">
+      <a class="button primary" href="/health">Health Check</a>
+      <a class="button secondary" href="/docs">API Docs</a>
+    </div>
+    <div class="meta">
+      <div>Base URL: <code>https://scrape.protalent.hr</code></div>
+      <div>Primary health endpoint: <code>GET /health</code></div>
+      <div>Scraper routes require the <code>x-api-key</code> header.</div>
+    </div>
+  </main>
+</body>
+</html>
+"""
 
 
 def _utcnow() -> datetime:
@@ -344,6 +499,11 @@ def _queue_response(task_name: str, **kwargs) -> JSONResponse:
 
 def _should_enqueue(async_job: bool) -> bool:
     return async_job
+
+
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def landing_page() -> str:
+    return LANDING_PAGE_HTML
 
 
 @app.get("/health", dependencies=[rate_limit(120, 60)])
