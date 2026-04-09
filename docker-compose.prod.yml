@@ -1,0 +1,100 @@
+services:
+  skrejper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: skrejper:latest
+    container_name: skrejper
+    env_file:
+      - .env
+    restart: unless-stopped
+    init: true
+    shm_size: "1gb"
+    expose:
+      - "8000"
+    networks:
+      - skrejper-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  celery-worker:
+    image: skrejper:latest
+    container_name: celery-worker
+    command: ["celery", "-A", "app.celery_app.celery_app", "worker", "--loglevel=info"]
+    env_file:
+      - .env
+    restart: unless-stopped
+    init: true
+    depends_on:
+      - redis
+      - skrejper
+    networks:
+      - skrejper-net
+    healthcheck:
+      disable: true
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - skrejper-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      - skrejper
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    networks:
+      - skrejper-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    profiles: ["ops"]
+    volumes:
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    networks:
+      - skrejper-net
+
+volumes:
+  redis_data:
+  certbot_www:
+  letsencrypt:
+
+networks:
+  skrejper-net:
+    name: skrejper-net
