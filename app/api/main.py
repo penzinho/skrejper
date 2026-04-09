@@ -37,7 +37,7 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skrejper API</title>
+  <title>ProTalent</title>
   <style>
     :root {
       color-scheme: light;
@@ -168,20 +168,17 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
 </head>
 <body>
   <main>
-    <span class="eyebrow">Production API</span>
-    <h1>Skrejper</h1>
+    <span class="eyebrow">Production Service</span>
+    <h1>ProTalent</h1>
     <p>
-      Scraping backend for ProTalent. The service is online, secured with TLS, and available for
-      authenticated scraper runs and health monitoring.
+      This service is online, secured with TLS, and operating normally.
     </p>
     <div class="actions">
       <a class="button primary" href="/health">Health Check</a>
-      <a class="button secondary" href="/docs">API Docs</a>
     </div>
     <div class="meta">
       <div>Base URL: <code>https://scrape.protalent.hr</code></div>
       <div>Primary health endpoint: <code>GET /health</code></div>
-      <div>Scraper routes require the <code>x-api-key</code> header.</div>
     </div>
   </main>
 </body>
@@ -440,7 +437,13 @@ class EmailWarmupStatusResponse(BaseModel):
     remaining_today: int | None = None
 
 
-app = FastAPI(title="Lead Generation API", version="1.0")
+app = FastAPI(
+    title="Lead Generation API",
+    version="1.0",
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 allowed_origins = _get_allowed_origins()
 app.add_middleware(
