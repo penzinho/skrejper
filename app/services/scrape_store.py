@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 from app.db.supabase import SupabaseStorage, get_supabase_storage
 from app.services.email_outreach import process_post_scrape_automations
+from app.services.lead_enrichment import schedule_scrape_run_email_enrichment
 
 
 def _utcnow_iso() -> str:
@@ -61,6 +62,10 @@ def normalize_hzz_job(job: dict[str, Any], *, category: str | None, run_id: str)
         "employer_email": _clean_text(job.get("email")),
         "employer_address": _clean_text(job.get("employer_address")),
         "employer_phone": _clean_text(job.get("phone")),
+        "email_enrichment_attempt_count": 0,
+        "email_enrichment_last_attempt_at": None,
+        "email_enrichment_next_attempt_at": None,
+        "email_enrichment_unusable": False,
         "last_run_id": run_id,
         "updated_at": _utcnow_iso(),
     }
@@ -79,6 +84,10 @@ def normalize_mojposao_job(job: dict[str, Any], *, run_id: str) -> dict[str, Any
         "employer_email": None,
         "employer_address": None,
         "employer_phone": None,
+        "email_enrichment_attempt_count": 0,
+        "email_enrichment_last_attempt_at": None,
+        "email_enrichment_next_attempt_at": None,
+        "email_enrichment_unusable": False,
         "last_run_id": run_id,
         "updated_at": _utcnow_iso(),
     }
@@ -241,6 +250,8 @@ def _run_scrape_and_store(
             snapshot_count=summary["snapshot_count"],
             failed_count=summary["failed_count"],
         )
+        if selected_valid_jobs:
+            schedule_scrape_run_email_enrichment(run_id=run_id, storage=storage)
         automation_result = process_post_scrape_automations(
             run_id=run_id,
             source=source,

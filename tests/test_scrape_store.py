@@ -7,17 +7,24 @@ from app.services.scrape_store import normalize_hzz_job, normalize_mojposao_job,
 class FakeStorage:
     def __init__(self):
         self.created_runs = []
+        self.jobs = {}
         self.upserted_jobs = []
         self.inserted_snapshots = []
         self.completed_runs = []
         self.failed_runs = []
+        self.scheduled_enrichment = []
+        self._job_counter = 0
 
     def create_scrape_run(self, source, filters):
         self.created_runs.append({"source": source, "filters": filters})
         return "run-123"
 
     def upsert_jobs(self, jobs):
-        self.upserted_jobs.extend(jobs)
+        for job in jobs:
+            self._job_counter += 1
+            stored = {"id": f"job-{self._job_counter}", **job}
+            self.jobs[stored["id"]] = stored
+            self.upserted_jobs.append(stored)
         return len(jobs)
 
     def insert_job_snapshots(self, snapshots):
@@ -33,8 +40,26 @@ class FakeStorage:
     def list_email_automation_rules(self, enabled_only=False):
         return []
 
+    def list_jobs_pending_email_enrichment(self, *, run_id):
+        return [
+            job
+            for job in self.jobs.values()
+            if job.get("last_run_id") == run_id and not job.get("employer_email") and not job.get("email_enrichment_unusable", False)
+        ]
+
+    def schedule_jobs_email_enrichment(self, job_ids, *, scheduled_for):
+        self.scheduled_enrichment.append({"job_ids": list(job_ids), "scheduled_for": scheduled_for})
+        for job_id in job_ids:
+            if job_id in self.jobs:
+                self.jobs[job_id]["email_enrichment_next_attempt_at"] = scheduled_for
+
 
 class ScrapeStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.enqueue_task_patcher = patch("app.services.lead_enrichment.enqueue_task")
+        self.enqueue_task_mock = self.enqueue_task_patcher.start()
+        self.addCleanup(self.enqueue_task_patcher.stop)
+
     def test_normalize_hzz_job_maps_contacts_and_published_date(self):
         normalized = normalize_hzz_job(
             {
@@ -120,6 +145,38 @@ class ScrapeStoreTests(unittest.TestCase):
         self.assertEqual(storage.inserted_snapshots[0]["job_payload"]["valid_to"], "20.04.2026.")
         self.assertEqual(len(storage.completed_runs), 1)
         self.assertEqual(len(storage.failed_runs), 0)
+
+    def test_scrape_and_store_schedules_follow_up_enrichment_for_missing_email(self):
+        storage = FakeStorage()
+
+        def fake_scraper(keyword, max_clicks, category, company_limit=None):
+            self.assertEqual(keyword, "sales")
+            self.assertEqual(max_clicks, 1)
+            self.assertIsNone(category)
+            self.assertIsNone(company_limit)
+            return [
+                {
+                    "title": "Account Manager",
+                    "company": "Studio",
+                    "location": "Zagreb",
+                    "detail_url": "https://mojposao.hr/job/1",
+                    "published_at": "09.04.2026.",
+                    "employer_website": "https://studio.example.com",
+                }
+            ]
+
+        from app.services.scrape_store import scrape_and_store_mojposao
+
+        summary = scrape_and_store_mojposao(
+            keyword="sales",
+            max_clicks=1,
+            storage=storage,
+            scraper=fake_scraper,
+        )
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(len(storage.scheduled_enrichment), 1)
+        self.assertEqual(storage.scheduled_enrichment[0]["job_ids"], ["job-1"])
 
     def test_scrape_and_store_filters_school_and_kindergarten_employers(self):
         storage = FakeStorage()

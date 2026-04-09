@@ -145,6 +145,81 @@ class SupabaseStorage:
         }
         self.client.table("jobs").update(payload).in_("id", job_ids).execute()
 
+    def update_jobs_employer_email(self, job_ids: list[str], employer_email: str) -> None:
+        if not job_ids:
+            return
+        payload = {
+            "employer_email": employer_email,
+            "email_enrichment_next_attempt_at": None,
+            "email_enrichment_unusable": False,
+            "updated_at": _utcnow_iso(),
+        }
+        self.client.table("jobs").update(payload).in_("id", job_ids).execute()
+
+    def list_jobs_pending_email_enrichment(self, *, run_id: str) -> list[dict[str, Any]]:
+        response = (
+            self.client.table("jobs")
+            .select("*")
+            .eq("last_run_id", run_id)
+            .is_("employer_email", "null")
+            .eq("email_enrichment_unusable", False)
+            .order("updated_at", desc=True)
+            .execute()
+        )
+        return _extract_rows(response)
+
+    def list_jobs_for_company_names(self, company_names: list[str]) -> list[dict[str, Any]]:
+        cleaned_names = [str(name).strip() for name in company_names if str(name).strip()]
+        if not cleaned_names:
+            return []
+        response = (
+            self.client.table("jobs")
+            .select(
+                "id,company,employer_email,email_enrichment_attempt_count,"
+                "email_enrichment_last_attempt_at,email_enrichment_unusable,updated_at"
+            )
+            .in_("company", cleaned_names)
+            .execute()
+        )
+        return _extract_rows(response)
+
+    def schedule_jobs_email_enrichment(self, job_ids: list[str], *, scheduled_for: str) -> None:
+        if not job_ids:
+            return
+        payload = {
+            "email_enrichment_next_attempt_at": scheduled_for,
+            "updated_at": _utcnow_iso(),
+        }
+        self.client.table("jobs").update(payload).in_("id", job_ids).execute()
+
+    def mark_jobs_email_enrichment_unusable(self, job_ids: list[str]) -> None:
+        if not job_ids:
+            return
+        payload = {
+            "email_enrichment_unusable": True,
+            "email_enrichment_next_attempt_at": None,
+            "updated_at": _utcnow_iso(),
+        }
+        self.client.table("jobs").update(payload).in_("id", job_ids).execute()
+
+    def update_job_email_enrichment_state(
+        self,
+        job_id: str,
+        *,
+        attempt_count: int,
+        last_attempt_at: str,
+        next_attempt_at: str | None,
+        unusable: bool,
+    ) -> None:
+        payload = {
+            "email_enrichment_attempt_count": attempt_count,
+            "email_enrichment_last_attempt_at": last_attempt_at,
+            "email_enrichment_next_attempt_at": next_attempt_at,
+            "email_enrichment_unusable": unusable,
+            "updated_at": _utcnow_iso(),
+        }
+        self.client.table("jobs").update(payload).eq("id", job_id).execute()
+
     def mark_job_email_sent(self, job_id: str, *, sent_at: str) -> None:
         current = self.get_job(job_id) or {}
         payload = {

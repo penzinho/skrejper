@@ -59,8 +59,17 @@ def get_celery_app():
     return _celery_app
 
 
-def enqueue_task(task_name: str, **kwargs) -> dict[str, Any]:
-    task = get_celery_app().send_task(task_name, kwargs=kwargs)
+def enqueue_task(
+    task_name: str,
+    *,
+    countdown_seconds: int | float | None = None,
+    **kwargs,
+) -> dict[str, Any]:
+    options: dict[str, Any] = {}
+    if countdown_seconds is not None:
+        options["countdown"] = countdown_seconds
+
+    task = get_celery_app().send_task(task_name, kwargs=kwargs, **options)
     return {
         "task_id": task.id,
         "task_name": task_name,

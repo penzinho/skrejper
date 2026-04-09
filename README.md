@@ -73,6 +73,17 @@ Optional email delivery settings:
 ```env
 RESEND_API_KEY=your-resend-api-key
 RESEND_FROM_EMAIL=sales@example.com
+FIRECRAWL_API_KEY=your-firecrawl-api-key
+```
+
+Optional Firecrawl tuning:
+
+```env
+FIRECRAWL_INITIAL_ENRICHMENT_DELAY_HOURS=3
+FIRECRAWL_RETRY_DELAY_HOURS=48
+FIRECRAWL_TIMEOUT_SECONDS=45
+FIRECRAWL_SCRAPE_TIMEOUT_MS=15000
+FIRECRAWL_MAX_PAGES_PER_LEAD=3
 ```
 
 Notes:
@@ -80,6 +91,8 @@ Notes:
 - `SUPABASE_SERVICE_ROLE_KEY` is also accepted instead of `SUPABASE_SECRET_KEY`.
 - If `CELERY_BROKER_URL` is not set, the app falls back to `REDIS_URL`, then `redis://localhost:6379/0`.
 - If `SCRAPER_API_KEY` is missing, protected scraping routes will reject requests with `401`.
+- If `FIRECRAWL_API_KEY` is set, jobs without `employer_email` are queued for Firecrawl enrichment a few hours after scrape completion, retried once two days later, then marked unusable if still unresolved.
+- Firecrawl enrichment is intentionally capped to a few same-domain page scrapes per lead to keep credit usage low.
 
 ## Generate An API Key
 

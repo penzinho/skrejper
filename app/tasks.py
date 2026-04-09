@@ -4,6 +4,7 @@ from app.services.email_outreach import (
     dispatch_due_email_campaigns,
     send_email_campaign,
 )
+from app.services.lead_enrichment import enrich_scrape_run_emails
 from app.services.scrape_store import scrape_and_store_hzz, scrape_and_store_mojposao
 
 
@@ -108,3 +109,10 @@ def send_email_campaign_task(campaign_id: str) -> dict:
 @celery_app.task(name="app.tasks.dispatch_due_email_campaigns")
 def dispatch_due_email_campaigns_task() -> dict:
     return dispatch_due_email_campaigns()
+
+
+@celery_app.task(name="app.tasks.enrich_scrape_run_emails")
+def enrich_scrape_run_emails_task(run_id: str) -> dict:
+    from app.db.supabase import get_supabase_storage
+
+    return enrich_scrape_run_emails(run_id=run_id, storage=get_supabase_storage())
