@@ -1,12 +1,18 @@
 import os
+import secrets
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from starlette.datastructures import Headers
 
 from app.db.supabase import get_supabase_storage
+from app.queue import enqueue_task, get_task_status
+from app.rate_limit import rate_limiter
 from app.scrapers.hzz import get_hzz_categories
 from app.scrapers.mojposao import get_mojposao_categories
 from app.services.email_outreach import (
@@ -24,15 +30,99 @@ from app.services.email_outreach import (
 )
 from app.services.scrape_store import scrape_and_store_hzz, scrape_and_store_mojposao
 
+SCRAPER_API_KEY_ENV_VAR = "SCRAPER_API_KEY"
+CORS_ALLOW_ORIGINS_ENV_VAR = "CORS_ALLOW_ORIGINS"
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
 def _get_allowed_origins() -> list[str]:
-    configured = os.getenv("CORS_ALLOW_ORIGINS", "*")
+    configured = os.getenv(CORS_ALLOW_ORIGINS_ENV_VAR, "flow.protalent.hr")
     origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
-    return origins or ["*"]
+    return origins or ["flow.protalent.hr"]
+
+
+def _normalize_origin(origin: str) -> str:
+    return origin.strip().lower().rstrip("/")
+
+
+def _extract_origin_host(origin: str) -> str | None:
+    normalized_origin = _normalize_origin(origin)
+    if not normalized_origin:
+        return None
+    parsed = urlsplit(normalized_origin if "://" in normalized_origin else f"https://{normalized_origin}")
+    return parsed.hostname.lower() if parsed.hostname else None
+
+
+def _split_allowed_origins(origins: list[str]) -> tuple[set[str], set[str]]:
+    exact_origins: set[str] = set()
+    allowed_hosts: set[str] = set()
+
+    for origin in origins:
+        normalized_origin = _normalize_origin(origin)
+        if not normalized_origin:
+            continue
+        if "://" in normalized_origin:
+            exact_origins.add(normalized_origin)
+            continue
+
+        host = _extract_origin_host(normalized_origin)
+        if host:
+            allowed_hosts.add(host)
+
+    return exact_origins, allowed_hosts
+
+
+def _build_cors_allowed_origins(origins: list[str]) -> list[str]:
+    cors_origins: list[str] = []
+    seen: set[str] = set()
+
+    for origin in origins:
+        normalized_origin = _normalize_origin(origin)
+        if not normalized_origin:
+            continue
+
+        candidates = [normalized_origin] if "://" in normalized_origin else [
+            f"https://{normalized_origin}",
+            f"http://{normalized_origin}",
+        ]
+        for candidate in candidates:
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            cors_origins.append(candidate)
+
+    return cors_origins
+
+
+def _is_allowed_origin(origin: str, exact_origins: set[str], allowed_hosts: set[str]) -> bool:
+    normalized_origin = _normalize_origin(origin)
+    if normalized_origin in exact_origins:
+        return True
+
+    origin_host = _extract_origin_host(normalized_origin)
+    return origin_host in allowed_hosts if origin_host else False
+
+
+class OriginValidationMiddleware:
+    def __init__(self, app, allowed_origins: list[str]) -> None:
+        self.app = app
+        self.exact_origins, self.allowed_hosts = _split_allowed_origins(allowed_origins)
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        origin = Headers(scope=scope).get("origin")
+        if origin and not _is_allowed_origin(origin, self.exact_origins, self.allowed_hosts):
+            response = JSONResponse(status_code=403, content={"detail": "Origin not allowed"})
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
 
 
 class ScrapeSummaryResponse(BaseModel):
@@ -48,20 +138,39 @@ class ScrapeSummaryResponse(BaseModel):
     automation_errors: list[str] = Field(default_factory=list)
 
 
+class QueuedTaskResponse(BaseModel):
+    task_id: str
+    task_name: str
+    status: str
+    queued_at: str
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    ready: bool
+    successful: bool
+    result: Any = None
+    error: str | None = None
+
+
 class HZZScrapeRequest(BaseModel):
     max_pages: int = Field(default=3, ge=1)
     category: str | None = None
+    async_job: bool = True
 
 
 class MojPosaoScrapeRequest(BaseModel):
     keyword: str = ""
     max_clicks: int = Field(default=5, ge=1)
     category: str | None = None
+    async_job: bool = True
 
 
 class RunAllScrapersRequest(BaseModel):
     hzz: HZZScrapeRequest = Field(default_factory=HZZScrapeRequest)
     mojposao: MojPosaoScrapeRequest = Field(default_factory=MojPosaoScrapeRequest)
+    async_job: bool = True
 
 
 class RunAllScrapersResponse(BaseModel):
@@ -118,6 +227,7 @@ class CreateEmailCampaignRequest(BaseModel):
     created_by: str | None = None
     scheduled_for: datetime | None = None
     send_now: bool = False
+    async_job: bool = True
 
 
 class EmailCampaignResponse(BaseModel):
@@ -180,11 +290,16 @@ app = FastAPI(title="Lead Generation API", version="1.0")
 allowed_origins = _get_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials="*" not in allowed_origins,
+    allow_origins=_build_cors_allowed_origins(allowed_origins),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(OriginValidationMiddleware, allowed_origins=allowed_origins)
+
+
+def rate_limit(limit: int, window_seconds: int = 60):
+    return Depends(rate_limiter.dependency(limit=limit, window_seconds=window_seconds))
 
 
 def _raise_for_failed_summary(summary: dict) -> None:
@@ -205,30 +320,71 @@ def _run_service(callable_obj, *args, **kwargs):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.get("/health")
+def _serialize_queue_datetime(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return value.astimezone(timezone.utc).isoformat() if value.tzinfo else value.replace(tzinfo=timezone.utc).isoformat()
+
+
+def require_scraper_api_key(
+    x_api_key: Annotated[str | None, Header(alias="x-api-key")] = None,
+) -> None:
+    expected_api_key = os.getenv(SCRAPER_API_KEY_ENV_VAR)
+    if not expected_api_key or not x_api_key or not secrets.compare_digest(x_api_key, expected_api_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+
+ProtectedScraperRoute = Annotated[None, Depends(require_scraper_api_key)]
+
+
+def _queue_response(task_name: str, **kwargs) -> JSONResponse:
+    task = _run_service(enqueue_task, task_name, **kwargs)
+    return JSONResponse(status_code=202, content=task)
+
+
+def _should_enqueue(async_job: bool) -> bool:
+    return async_job
+
+
+@app.get("/health", dependencies=[rate_limit(120, 60)])
 def health() -> dict[str, datetime | str]:
     return {"status": "ok", "time": _utcnow()}
 
 
-@app.get("/scrapers/hzz/categories")
+@app.get("/scrapers/hzz/categories", dependencies=[rate_limit(60, 60)])
 def list_hzz_categories() -> list[dict[str, str]]:
     return get_hzz_categories()
 
 
-@app.get("/scrapers/mojposao/categories")
+@app.get("/scrapers/mojposao/categories", dependencies=[rate_limit(60, 60)])
 def list_mojposao_categories() -> list[dict[str, str]]:
     return get_mojposao_categories()
 
 
-@app.post("/scrapers/hzz", response_model=ScrapeSummaryResponse)
-def run_hzz_scraper(payload: HZZScrapeRequest) -> dict:
+@app.post("/scrapers/hzz", response_model=ScrapeSummaryResponse | QueuedTaskResponse, dependencies=[rate_limit(10, 60)])
+def run_hzz_scraper(payload: HZZScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.scrape_hzz",
+            max_pages=payload.max_pages,
+            category=payload.category,
+        )
+
     summary = scrape_and_store_hzz(max_pages=payload.max_pages, category=payload.category)
     _raise_for_failed_summary(summary)
     return summary
 
 
-@app.post("/scrapers/mojposao", response_model=ScrapeSummaryResponse)
-def run_mojposao_scraper(payload: MojPosaoScrapeRequest) -> dict:
+@app.post("/scrapers/mojposao", response_model=ScrapeSummaryResponse | QueuedTaskResponse, dependencies=[rate_limit(10, 60)])
+def run_mojposao_scraper(payload: MojPosaoScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.scrape_mojposao",
+            keyword=payload.keyword,
+            max_clicks=payload.max_clicks,
+            category=payload.category,
+        )
+
     summary = scrape_and_store_mojposao(
         keyword=payload.keyword,
         max_clicks=payload.max_clicks,
@@ -238,8 +394,22 @@ def run_mojposao_scraper(payload: MojPosaoScrapeRequest) -> dict:
     return summary
 
 
-@app.post("/scrapers/run-all", response_model=RunAllScrapersResponse)
-def run_all_scrapers(payload: RunAllScrapersRequest) -> dict[str, list[dict]]:
+@app.post("/scrapers/run-all", response_model=RunAllScrapersResponse | QueuedTaskResponse, dependencies=[rate_limit(5, 60)])
+def run_all_scrapers(payload: RunAllScrapersRequest, _: ProtectedScraperRoute) -> dict[str, list[dict]] | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.run_all_scrapers",
+            hzz={
+                "max_pages": payload.hzz.max_pages,
+                "category": payload.hzz.category,
+            },
+            mojposao={
+                "keyword": payload.mojposao.keyword,
+                "max_clicks": payload.mojposao.max_clicks,
+                "category": payload.mojposao.category,
+            },
+        )
+
     results = [
         scrape_and_store_hzz(max_pages=payload.hzz.max_pages, category=payload.hzz.category),
         scrape_and_store_mojposao(
@@ -255,7 +425,7 @@ def run_all_scrapers(payload: RunAllScrapersRequest) -> dict[str, list[dict]]:
     return {"results": results}
 
 
-@app.get("/jobs/email-targets", response_model=list[EmailJobTargetResponse])
+@app.get("/jobs/email-targets", response_model=list[EmailJobTargetResponse], dependencies=[rate_limit(30, 60)])
 def get_email_targets(
     source: str | None = None,
     run_id: str | None = None,
@@ -271,17 +441,22 @@ def get_email_targets(
     )
 
 
-@app.get("/email/placeholders")
+@app.get("/queue/tasks/{task_id}", response_model=TaskStatusResponse, dependencies=[rate_limit(90, 60)])
+def get_queue_task(task_id: str) -> dict[str, Any]:
+    return _run_service(get_task_status, task_id)
+
+
+@app.get("/email/placeholders", dependencies=[rate_limit(60, 60)])
 def get_email_placeholders() -> list[dict[str, str]]:
     return get_placeholder_catalog()
 
 
-@app.get("/email/templates", response_model=list[EmailTemplateResponse])
+@app.get("/email/templates", response_model=list[EmailTemplateResponse], dependencies=[rate_limit(45, 60)])
 def get_email_templates() -> list[dict[str, Any]]:
     return _run_service(list_email_templates)
 
 
-@app.post("/email/templates", response_model=EmailTemplateResponse)
+@app.post("/email/templates", response_model=EmailTemplateResponse, dependencies=[rate_limit(20, 60)])
 def save_email_template(payload: EmailTemplateRequest) -> dict[str, Any]:
     return _run_service(
         upsert_email_template,
@@ -292,13 +467,33 @@ def save_email_template(payload: EmailTemplateRequest) -> dict[str, Any]:
     )
 
 
-@app.get("/email/campaigns")
+@app.get("/email/campaigns", dependencies=[rate_limit(30, 60)])
 def get_email_campaigns() -> list[dict[str, Any]]:
     return get_supabase_storage().list_email_campaigns()
 
 
-@app.post("/email/campaigns", response_model=EmailCampaignResponse)
-def create_campaign(payload: CreateEmailCampaignRequest) -> dict[str, Any]:
+@app.post("/email/campaigns", response_model=EmailCampaignResponse | QueuedTaskResponse, dependencies=[rate_limit(12, 60)])
+def create_campaign(payload: CreateEmailCampaignRequest) -> dict[str, Any] | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.create_email_campaign",
+            name=payload.name,
+            source=payload.target.source,
+            run_id=payload.target.run_id,
+            job_ids=payload.target.job_ids,
+            only_not_emailed=payload.target.only_not_emailed,
+            require_email=payload.target.require_email,
+            template_id=payload.template_id,
+            subject=payload.subject,
+            html_content=payload.html_content,
+            text_content=payload.text_content,
+            sender_email=payload.sender_email,
+            reply_to_email=payload.reply_to_email,
+            created_by=payload.created_by,
+            scheduled_for=_serialize_queue_datetime(payload.scheduled_for),
+            send_now=payload.send_now,
+        )
+
     return _run_service(
         create_email_campaign,
         name=payload.name,
@@ -319,22 +514,28 @@ def create_campaign(payload: CreateEmailCampaignRequest) -> dict[str, Any]:
     )
 
 
-@app.post("/email/campaigns/{campaign_id}/send", response_model=EmailCampaignResponse)
-def send_campaign(campaign_id: str) -> dict[str, Any]:
+@app.post("/email/campaigns/{campaign_id}/send", response_model=EmailCampaignResponse | QueuedTaskResponse, dependencies=[rate_limit(15, 60)])
+def send_campaign(campaign_id: str, async_job: bool = True) -> dict[str, Any] | JSONResponse:
+    if _should_enqueue(async_job):
+        return _queue_response("app.tasks.send_email_campaign", campaign_id=campaign_id)
+
     return _run_service(send_email_campaign, campaign_id=campaign_id)
 
 
-@app.post("/email/campaigns/dispatch-due", response_model=DispatchDueCampaignsResponse)
-def dispatch_due_campaigns() -> dict[str, list[dict[str, Any]]]:
+@app.post("/email/campaigns/dispatch-due", response_model=DispatchDueCampaignsResponse | QueuedTaskResponse, dependencies=[rate_limit(6, 60)])
+def dispatch_due_campaigns(async_job: bool = True) -> dict[str, list[dict[str, Any]]] | JSONResponse:
+    if _should_enqueue(async_job):
+        return _queue_response("app.tasks.dispatch_due_email_campaigns")
+
     return _run_service(dispatch_due_email_campaigns)
 
 
-@app.get("/email/automation-rules", response_model=list[EmailAutomationRuleResponse])
+@app.get("/email/automation-rules", response_model=list[EmailAutomationRuleResponse], dependencies=[rate_limit(30, 60)])
 def get_automation_rules() -> list[dict[str, Any]]:
     return _run_service(list_email_automation_rules)
 
 
-@app.post("/email/automation-rules", response_model=EmailAutomationRuleResponse)
+@app.post("/email/automation-rules", response_model=EmailAutomationRuleResponse, dependencies=[rate_limit(20, 60)])
 def save_automation_rule(payload: EmailAutomationRuleRequest) -> dict[str, Any]:
     return _run_service(
         upsert_email_automation_rule,
@@ -355,12 +556,12 @@ def save_automation_rule(payload: EmailAutomationRuleRequest) -> dict[str, Any]:
     )
 
 
-@app.get("/email/warmup", response_model=EmailWarmupStatusResponse)
+@app.get("/email/warmup", response_model=EmailWarmupStatusResponse, dependencies=[rate_limit(30, 60)])
 def get_warmup_status() -> dict[str, Any]:
     return _run_service(get_email_warmup_status)
 
 
-@app.put("/email/warmup", response_model=EmailWarmupStatusResponse)
+@app.put("/email/warmup", response_model=EmailWarmupStatusResponse, dependencies=[rate_limit(20, 60)])
 def save_warmup_settings(payload: EmailWarmupSettingsRequest) -> dict[str, Any]:
     _run_service(
         upsert_email_warmup_settings,
