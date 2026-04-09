@@ -125,6 +125,66 @@ class ApiRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"]["status"], "failed")
 
+    @patch("app.api.main.create_email_campaign")
+    def test_create_email_campaign_route_calls_service(self, create_email_campaign_mock):
+        create_email_campaign_mock.return_value = {
+            "campaign_id": "campaign-1",
+            "name": "April Outreach",
+            "status": "draft",
+            "scheduled_for": None,
+            "total_recipients": 2,
+            "sent_count": 0,
+            "failed_count": 0,
+            "queued_count": 2,
+            "warmup_remaining_today": None,
+        }
+
+        response = self.client.post(
+            "/email/campaigns",
+            json={
+                "name": "April Outreach",
+                "target": {"job_ids": ["job-1", "job-2"], "only_not_emailed": True},
+                "subject": "Hi {{company}}",
+                "html_content": "<p>Hello {{company}}</p>",
+                "sender_email": "sales@example.com",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["campaign_id"], "campaign-1")
+        create_email_campaign_mock.assert_called_once_with(
+            name="April Outreach",
+            source=None,
+            run_id=None,
+            job_ids=["job-1", "job-2"],
+            only_not_emailed=True,
+            require_email=True,
+            template_id=None,
+            subject="Hi {{company}}",
+            html_content="<p>Hello {{company}}</p>",
+            text_content=None,
+            sender_email="sales@example.com",
+            reply_to_email=None,
+            created_by=None,
+            scheduled_for=None,
+            send_now=False,
+        )
+
+    @patch("app.api.main.get_email_warmup_status")
+    def test_get_email_warmup_status_route_returns_service_payload(self, get_email_warmup_status_mock):
+        get_email_warmup_status_mock.return_value = {
+            "settings": {"enabled": True, "initial_daily_limit": 10},
+            "effective_daily_limit": 15,
+            "sent_today": 3,
+            "remaining_today": 12,
+        }
+
+        response = self.client.get("/email/warmup")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["effective_daily_limit"], 15)
+        self.assertEqual(response.json()["remaining_today"], 12)
+
 
 if __name__ == "__main__":
     unittest.main()

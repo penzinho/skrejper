@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from app.services.scrape_store import normalize_hzz_job, normalize_mojposao_job, scrape_and_store_hzz
 
@@ -28,6 +29,9 @@ class FakeStorage:
 
     def fail_scrape_run(self, run_id, **payload):
         self.failed_runs.append({"run_id": run_id, **payload})
+
+    def list_email_automation_rules(self, enabled_only=False):
+        return []
 
 
 class ScrapeStoreTests(unittest.TestCase):
@@ -159,6 +163,41 @@ class ScrapeStoreTests(unittest.TestCase):
         self.assertEqual(storage.upserted_jobs[0]["company"], "Caritas")
         self.assertEqual(len(storage.inserted_snapshots), 1)
         self.assertEqual(storage.inserted_snapshots[0]["detail_url"], "https://burzarada.hzz.hr/job/allowed")
+
+    @patch("app.services.scrape_store.process_post_scrape_automations")
+    def test_scrape_and_store_attaches_automation_results(self, process_post_scrape_automations_mock):
+        storage = FakeStorage()
+        process_post_scrape_automations_mock.return_value = {
+            "campaign_ids": ["campaign-1"],
+            "errors": ["rule-a: skipped"],
+        }
+
+        def fake_scraper(max_pages, category):
+            return [
+                {
+                    "title": "Prodajni predstavnik",
+                    "company": "Caritas",
+                    "location": "Zagreb",
+                    "detail_url": "https://burzarada.hzz.hr/job/allowed",
+                    "valid_from": "09.04.2026.",
+                    "email": "kontakt@example.com",
+                }
+            ]
+
+        summary = scrape_and_store_hzz(
+            max_pages=1,
+            category=None,
+            storage=storage,
+            scraper=fake_scraper,
+        )
+
+        self.assertEqual(summary["automation_campaign_ids"], ["campaign-1"])
+        self.assertEqual(summary["automation_errors"], ["rule-a: skipped"])
+        process_post_scrape_automations_mock.assert_called_once_with(
+            run_id="run-123",
+            source="hzz",
+            storage=storage,
+        )
 
 
 if __name__ == "__main__":

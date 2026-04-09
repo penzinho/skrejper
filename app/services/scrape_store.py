@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.db.supabase import SupabaseStorage, get_supabase_storage
+from app.services.email_outreach import process_post_scrape_automations
 
 
 def _utcnow_iso() -> str:
@@ -130,6 +131,8 @@ def _run_scrape_and_store(
         "snapshot_count": 0,
         "failed_count": 0,
         "error": None,
+        "automation_campaign_ids": [],
+        "automation_errors": [],
     }
 
     try:
@@ -163,6 +166,13 @@ def _run_scrape_and_store(
             snapshot_count=summary["snapshot_count"],
             failed_count=summary["failed_count"],
         )
+        automation_result = process_post_scrape_automations(
+            run_id=run_id,
+            source=source,
+            storage=storage,
+        )
+        summary["automation_campaign_ids"] = automation_result["campaign_ids"]
+        summary["automation_errors"] = automation_result["errors"]
         summary["status"] = "completed"
         return summary
     except Exception as exc:
