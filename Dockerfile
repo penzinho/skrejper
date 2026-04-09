@@ -9,12 +9,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /build
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+        libffi-dev \
+        libssl-dev \
+        pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN python -m venv "${VIRTUAL_ENV}"
 
 COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install -r requirements.txt
+    && pip install --prefer-binary -r requirements.txt
 
 
 FROM python:3.14-slim AS runtime
