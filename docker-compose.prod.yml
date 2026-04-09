@@ -92,8 +92,11 @@ services:
 
 volumes:
   redis_data:
+    name: redis_data
   certbot_www:
+    name: certbot_www
   letsencrypt:
+    name: letsencrypt
 
 networks:
   skrejper-net:
