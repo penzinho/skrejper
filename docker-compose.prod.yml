@@ -92,10 +92,13 @@ services:
 
 volumes:
   redis_data:
+    external: true
     name: redis_data
   certbot_www:
+    external: true
     name: certbot_www
   letsencrypt:
+    external: true
     name: letsencrypt
 
 networks:
