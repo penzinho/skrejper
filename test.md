@@ -1,0 +1,172 @@
+# HZZ Test Output
+
+Source URL: https://burzarada.hzz.hr/Posloprimac_RadnaMjesta.aspx
+Category: STRU?NJACI U PROMETU
+Category key: transport
+Total records saved: 10
+Date: 2026-04-09
+
+```json
+[
+  {
+    "title": "VOZAČ B / C KATEGORIJE",
+    "company": "STANDARD GRADNJA društvo s ograničenom odgovornošću, za građenje i usluge",
+    "location": "SPLIT",
+    "employees_needed": "2",
+    "employment_type": "Na neodređeno; novootvoreni poslovi",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Zajednički smještaj",
+    "valid_from": "9.4.2026.",
+    "valid_to": "30.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Osnovna škola niži razredi Završena osnovna škola Srednja škola 3 godine Radno iskustvo: 1 godinu Ostale informacije: Upravljanje vozilima B i C kategorije za potrebe gradilišta i terenskog rada Prijevoz materijala, opreme i radnika na različite lokacije Utovar i istovar robe uz pridržavanje sigurnosnih standarda Briga o urednosti, ispravnosti i redovitom održavanju vozila Poštivanje prometnih propisa i internih pravila tvrtke Pomoćni poslovi na gradilištu prema potrebi",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162514665",
+    "email": "anjakol99@gmail.com",
+    "phone": "",
+    "source": "hzz"
+  },
+  {
+    "title": "VOZAČ / VOZAČICA - DOSTAVLJAČ / DOSTAVLJAČICA",
+    "company": "Obrt za usluge, ŽIGO TRANSPORT, vl. Zdravko Žigo,Terzićeva 5, Split",
+    "location": "SPLIT",
+    "employees_needed": "2",
+    "employment_type": "Na neodređeno; novootvoreni poslovi",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "9.5.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Vozački ispit: Kategorija B Kategorija C Radno iskustvo: Nije važno Ostale informacije: Opis poslova: vozač na području Dalmacije. Obavezna C kategorija.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162465735",
+    "email": "zigo.transport@gmail.com",
+    "phone": "095 5641842",
+    "source": "hzz"
+  },
+  {
+    "title": "SKLADIŠTAR / SKLADIŠTARKA U PRODAVAONICI",
+    "company": "DJELO, PODUZEĆE ZA TRGOVINU NA VELIKO I MALO, TURIZAM,UGOSTITELJSTVO I IZVOZ-UVOZ,D.O.O.",
+    "location": "LOZOVAC",
+    "employees_needed": "1",
+    "employment_type": "Na određeno; povećan opseg posla",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "9.5.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Viša ili prvostupanjska Radno iskustvo: Nije važno Ostale informacije: prijem i slaganje robe po prodavaonici održavanje urednosti poslovnog prostora",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162513004",
+    "email": "adriana.kozic@djelo.hr",
+    "phone": "",
+    "source": "hzz"
+  },
+  {
+    "title": "SKLADIŠTAR / SKLADIŠTARKA",
+    "company": "MALEGRA global društvo s ograničenom odgovornošću za trgovinu i usluge",
+    "location": "VARAŽDIN",
+    "employees_needed": "1",
+    "employment_type": "Na određeno; povećan opseg posla",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "30.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Viša ili prvostupanjska Radno iskustvo: Nije važno Ostale informacije: Opis posla: - priprema i izdavanju aluminijskih profila što uključuje pripremu i rezanje aluminijskih profila na mjere, pakiranje robe i izdavanje pripremljene robe kupcu - praćenje stanja skladišta, utovar i istovar robe viličarem i/ili ručno Putni troškovi prema dogovoru. Postoji mogućnost stalnog zaposlenja.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162481777",
+    "email": "malegra.global@gmail.com",
+    "phone": "095 5055403",
+    "source": "hzz"
+  },
+  {
+    "title": "VOZAČ / VOZAČICA TERETNOG VOZILA",
+    "company": "NISKOGRADNJA VESELNIK, obrt za niskogradnju i nadzor, vl. Mario Veselnik, Kolarovec, 8. Maja 18",
+    "location": "KOLAROVEC",
+    "employees_needed": "2",
+    "employment_type": "Na neodređeno; novootvoreni poslovi",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Zajednički smještaj",
+    "valid_from": "9.4.2026.",
+    "valid_to": "5.5.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Vozački ispit: Kategorija C Kategorija E Radno iskustvo: Nije važno Ostale informacije: Opis posla: poslovi prijevoza u građevini (niskogradnja). Mjesto rada: Varaždinska županija",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162503093",
+    "email": "",
+    "phone": "042 208793",
+    "source": "hzz"
+  },
+  {
+    "title": "VOZAČ / VOZAČICA TAKSIJA",
+    "company": "DALMACIJA TRANSFER j.d.o.o. za prijevoz i usluge",
+    "location": "ZADAR",
+    "employees_needed": "20",
+    "employment_type": "Na određeno",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Zajednički smještaj",
+    "valid_from": "9.4.2026.",
+    "valid_to": "24.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Osnovna škola niži razredi Završena osnovna škola Strani jezici: Engleski jezik Vozački ispit: Kategorija B Radno iskustvo: Nije važno",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162502232",
+    "email": "info@dalmacija-nekretnine.hr",
+    "phone": "0959077997",
+    "source": "hzz"
+  },
+  {
+    "title": "SKLADIŠTAR / KA",
+    "company": "CARITAS ZAGREBAČKE NADBISKUPIJE",
+    "location": "RAKITJE",
+    "employees_needed": "1",
+    "employment_type": "Na određeno; povećan opseg posla",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "19.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Informatička znanja: Potrebno poznavanje osnova informatike osnove korištenja računala u Windows okruženju Vozački ispit: Kategorija B Radno iskustvo: 1 godinu Ostale informacije: Caritas Zagrebačke nadbiskupije zapošljava skladištara/ku u centralnom skladištu u Rakitju. UVJET: Završena SSS, 1 godina radnog iskustva Poželjna je vozačka dozvola C i D kategorije. Poželjna je osposobljenost za rukovanje viličarom, uz mogućnost dodatnog osposobljavanja prema potrebi. probni rad u trajanju dva mjeseca RADNO VRIJEME: 7.00 do 15.00 sati Opis radnog mjesta: vrši utovar i istovar robe, zapisnički utvrđuje oštećenja, manjak ili višak robe; brine se o pravovremenom ispostavljanju skladišne dokumentacije određenim službama; brine da se roba u skladište zaprima kvantitativnim ili kvalitativnim pregledom, i to svaka pozicija sa ulaznog dokumenta; brine se da se ne izdaje roba sa stanja bez popratnog dokumenta (izdatnica, revers,međuskladišnica....); vodi brigu o higijenskim uvjetima (pranje i dezinfekcija skladišnog prostora); pridržava se mjera zaštite na radu i protupožarne zaštite u svom djelokrugu; obavlja i druge poslove po nalogu voditelja Odjela za svoj rad odgovara voditelju Odjela i ravnatelju. Mjesto rada: Rakitje Uz pisanu prijavu na natječaj i životopis potrebno je priložiti: 1. Presliku osobne iskaznice; 2. Presliku domovnice; 3. Elektronički zapis o radnopravnom statusu; 4. Dokaz o stupnju obrazovanja (preslika); 5. Uvjerenje da se ne vodi kazneni postupak (Zakon o socijalnoj skrbi (NN 18/22 71/23 61/25) članak 261.). Dokumentacija se dostavlja e-mailom na prijemni.ured@czn.hr ili poštom na Caritas Zagrebačke nadbiskupije, Ulica Stjepana Babonića 121, 10000 Zagreb. Prilikom prijave potrebno je jasno naznačiti za koje radno mjesto se kandidat/kinja prijavljuje.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162518447",
+    "email": "prijemni.ured@czn.hr",
+    "phone": "",
+    "source": "hzz"
+  },
+  {
+    "title": "VOZAČ KAMIONA C+E",
+    "company": "KEŽMAN GRAD d.o.o. za usluge",
+    "location": "ZAPREŠIĆ",
+    "employees_needed": "3",
+    "employment_type": "Na neodređeno; novootvoreni poslovi",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "8.5.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Vozački ispit: Kategorija B Kategorija C Kategorija E Radno iskustvo: 2 godine Ostale informacije: Vozač kamiona zadužen je za prijevoz različitih vrsta robe, poput građevinskog materijala, sirovina ili gotovih proizvoda, s jedne lokacije na drugu. Njegov rad ne uključuje samo vožnju, već i planiranje rute, provjeru vozila prije polaska te osiguravanje da je teret pravilno utovaren i sigurno pričvršćen. Plaća te svi ostali uvijeti rada su prema dogovoru.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162515639",
+    "email": "info@kezman-grad.com",
+    "phone": "098 1772734",
+    "source": "hzz"
+  },
+  {
+    "title": "VOZAČ / ICA KAMIONA",
+    "company": "A&M d.o.o. za proizvodnju, trgovinu i usluge",
+    "location": "ZAGREB",
+    "employees_needed": "2",
+    "employment_type": "Na određeno; povećan opseg posla",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Zajednički smještaj",
+    "valid_from": "9.4.2026.",
+    "valid_to": "30.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 3 godine Srednja škola 4 godine Vozački ispit: Kategorija C Kategorija E Radno iskustvo: 2 godine Ostale informacije: Opis posla: dovoz/odvoz materijala do/s gradilišta Uvjeti: - minimum 2 godine radnog iskustva - završeno osposobljavanje za kategorije C, C1, CE, C1E - KOD 95 Poslodavac nudi: smještaj Kontakt isključivo porukom na broj mobitela (poruka/WhatsApp/Viber) ili e-mailom.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162329886",
+    "email": "prijava.am@gmail.com",
+    "phone": "091 3521210",
+    "source": "hzz"
+  },
+  {
+    "title": "SPECIJALIST / ICA ZA PROMET I LOGISTIKU",
+    "company": "BRIONI d.o.o. za javni cestovni prijevoz putnika i robe u zemlji i inozemstvu",
+    "location": "ZAGREB",
+    "employees_needed": "2",
+    "employment_type": "Na određeno; povećan opseg posla",
+    "working_hours": "Puno radno vrijeme",
+    "accommodation": "Nema smještaja",
+    "valid_from": "9.4.2026.",
+    "valid_to": "17.4.2026.",
+    "jobseeker_info": "Razina obrazovanja: Srednja škola 4 godine Viša ili prvostupanjska Vozački ispit: Kategorija B Radno iskustvo: Nije važno Ostale informacije: Specijalist u prometu i logistici ima ključnu ulogu u planiranju, organizaciji i optimizaciji transportnih i logističkih operacija. Opis posla: - izrada rasporeda rada vozača, pri čemu je važno voditi računa o dozvoljenom radnom vremenu vozača - praćenje vozila, odnosno praćenje kretanja vozila u stvarnom vremenu putem GPS-a ili druge tehnologije kako bi se osigurala točnost - planiranje ruta: izrada rasporeda vožnji kako bi se osiguralo učinkovito korištenje resursa i minimiziralo kašnjenje - koordinacija vozača: komuniciranje s vozačima, davanje uputa o linijama, rasporedu, stanju prometa i izvanrednim situacijama, evidencija rada vozača - praćenje reda vožnje: vođenje računa o tome da vozila poštuju predviđeno vrijeme polaska i dolaska kako bi putnici mogli planirati svoje putovanje - praćenje performansi: analiziranje podataka o performansama vožnji i prometnih tokova kako bi se identificirala mogućnosti poboljšanja - izrada evidencija o radu. Od kandidata/kinje poslodavac očekuje: - odlične organizacijske vještine, - komunikacijske vještine, - poznavanje regulativa i propisa, - vještine vođenja, - pedantnost, - kreativnost, - znanje engleskog jezika. Poslodavac nudi stimulativna primanja i profesionalni razvoj.",
+    "detail_url": "https://burzarada.hzz.hr/RadnoMjesto_Ispis.aspx?WebSifra=162493065",
+    "email": "posao@brioni.hr",
+    "phone": "",
+    "source": "hzz"
+  }
+]
+```
