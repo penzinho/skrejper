@@ -1,6 +1,9 @@
 import os
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
+
+_CET = ZoneInfo("Europe/Zagreb")
 
 try:
     from celery import Celery
@@ -15,7 +18,7 @@ _celery_app = None
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(_CET).isoformat()
 
 
 def _get_broker_url() -> str:

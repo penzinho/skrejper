@@ -3,6 +3,9 @@ import secrets
 from datetime import datetime, timezone
 from typing import Annotated, Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
+
+_CET = ZoneInfo("Europe/Zagreb")
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -187,7 +190,7 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(_CET)
 
 
 def _get_allowed_origins() -> list[str]:
@@ -481,7 +484,7 @@ def _run_service(callable_obj, *args, **kwargs):
 def _serialize_queue_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None
-    return value.astimezone(timezone.utc).isoformat() if value.tzinfo else value.replace(tzinfo=timezone.utc).isoformat()
+    return value.astimezone(_CET).isoformat() if value.tzinfo else value.replace(tzinfo=_CET).isoformat()
 
 
 def require_scraper_api_key(
