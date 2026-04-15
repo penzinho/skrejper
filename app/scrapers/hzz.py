@@ -105,6 +105,10 @@ def _clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", (value or "")).strip()
 
 
+def _strip_hzz_count(value: str) -> str:
+    return re.sub(r"\s+\d+$", "", _clean_text(value))
+
+
 def _slugify_category(value: str) -> str:
     normalized = (value or "").casefold()
     replacements = {
@@ -129,6 +133,10 @@ def _company_limit_key(company: str, detail_url: str) -> str:
 
 def get_hzz_categories() -> list[dict[str, str]]:
     return [{"key": key, "label": label} for key, label in HZZ_CATEGORIES.items()]
+
+
+def get_hzz_category_groups(category: str) -> list[str]:
+    return []
 
 
 def _resolve_category(category: str | None) -> str | None:
@@ -353,27 +361,287 @@ def _select_category(page: Page, category_label: str) -> None:
     page.wait_for_timeout(1000)
 
 
+def _discover_category_group_links(page: Page, category_label: str) -> list[dict[str, str]]:
+    groups = page.evaluate(
+        """(categoryLabel) => {
+            const normalize = (value) => (value || "").replace(/\\s+/g, " ").trim();
+            const categoryText = normalize(categoryLabel).toLocaleLowerCase("hr-HR");
+            const anchors = Array.from(document.querySelectorAll("a"));
+            const categoryAnchor = anchors.find((anchor) => {
+                const text = normalize(anchor.textContent).toLocaleLowerCase("hr-HR");
+                const id = anchor.id || "";
+                return text.startsWith(categoryText) && id.includes("DataList1");
+            });
+            if (!categoryAnchor || !categoryAnchor.id) {
+                return [];
+            }
+
+            const categoryPrefix = categoryAnchor.id.replace(/_(?:lnkKategorija|LinkButton1)$/, "");
+            const seen = new Set();
+            return anchors
+                .filter((anchor) => {
+                    const id = anchor.id || "";
+                    const href = anchor.getAttribute("href") || "";
+                    return id.startsWith(`${categoryPrefix}_Skupine_`) && href.includes("__doPostBack");
+                })
+                .map((anchor) => ({
+                    label: normalize(anchor.textContent).replace(/\\s+\\d+$/, ""),
+                    href: anchor.getAttribute("href") || "",
+                }))
+                .filter((group) => {
+                    if (!group.label || seen.has(group.label)) {
+                        return false;
+                    }
+                    seen.add(group.label);
+                    return true;
+                });
+        }""",
+        category_label,
+    )
+    return [
+        {"label": _strip_hzz_count(item.get("label", "")), "href": item.get("href", "")}
+        for item in groups
+        if item.get("label") and item.get("href")
+    ]
+
+
+def _run_postback_href(page: Page, href: str) -> bool:
+    match = re.search(r"__doPostBack\('([^']+)','([^']*)'\)", href or "")
+    if not match:
+        return False
+
+    page.evaluate(
+        """({target, argument}) => {
+            if (typeof window.__doPostBack !== "function") {
+                return false;
+            }
+            window.__doPostBack(target, argument);
+            return true;
+        }""",
+        {"target": match.group(1), "argument": match.group(2)},
+    )
+    return True
+
+
+def _select_category_group(page: Page, category_label: str, group_label: str) -> None:
+    page.goto(LANDING_URL, wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(1000)
+
+    groups = _discover_category_group_links(page, category_label)
+    group_slug = _slugify_category(group_label)
+    group_href = next(
+        (
+            item["href"]
+            for item in groups
+            if _slugify_category(item["label"]) == group_slug
+        ),
+        "",
+    )
+    if not group_href:
+        raise ValueError(
+            f"HZZ group link not found for '{group_label}' in category '{category_label}'"
+        )
+
+    if not _run_postback_href(page, group_href):
+        raise ValueError(
+            f"HZZ group link has unsupported navigation for '{group_label}'"
+        )
+
+    try:
+        page.wait_for_load_state("networkidle", timeout=30000)
+    except PlaywrightTimeoutError:
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
+    page.wait_for_timeout(1000)
+
+
+def _wait_after_listing_change(page: Page) -> None:
+    try:
+        page.wait_for_load_state("networkidle", timeout=30000)
+    except PlaywrightTimeoutError:
+        page.wait_for_load_state("domcontentloaded", timeout=10000)
+    try:
+        page.locator(f"a.TitleLink[href*='{DETAIL_URL_KEYWORD}']").first.wait_for(timeout=7000)
+    except PlaywrightTimeoutError:
+        pass
+    page.wait_for_timeout(1000)
+
+
+def _listing_row_count(page: Page) -> int:
+    try:
+        return page.locator(f"a.TitleLink[href*='{DETAIL_URL_KEYWORD}']").count()
+    except Exception:
+        return 0
+
+
+def _set_results_per_page(page: Page, per_page: int = 75) -> bool:
+    target = str(per_page)
+    selects = page.locator("select")
+
+    for index in range(selects.count()):
+        try:
+            select = selects.nth(index)
+            candidate = select.evaluate(
+                """(element, target) => {
+                    const rect = element.getBoundingClientRect();
+                    if (!rect.width || !rect.height) {
+                        return null;
+                    }
+
+                    const options = Array.from(element.options || []);
+                    const numericTexts = new Set(
+                        options
+                            .map((item) => (item.textContent || "").trim())
+                            .filter((text) => /^\\d+$/.test(text))
+                    );
+                    for (const expected of ["10", "25", "50", "75"]) {
+                        if (!numericTexts.has(expected)) {
+                            return null;
+                        }
+                    }
+
+                    const option = options.find((item) => {
+                        const text = (item.textContent || "").trim();
+                        return text === target || item.value === target;
+                    });
+                    return option ? {value: option.value, previous: element.value} : null;
+                }""",
+                target,
+            )
+            if not candidate:
+                continue
+
+            option_value = candidate["value"]
+            previous_value = candidate["previous"]
+            if select.input_value(timeout=2000) == option_value:
+                return True
+
+            select.select_option(value=option_value, timeout=5000)
+            _wait_after_listing_change(page)
+
+            if _listing_row_count(page) > 0:
+                print(f"[hzz] Results per page set to {per_page}")
+                return True
+
+            print(
+                f"[hzz] Results per page {per_page} returned no rows; "
+                "reverting to previous page size"
+            )
+            select.select_option(value=previous_value, timeout=5000)
+            _wait_after_listing_change(page)
+            return False
+        except Exception as exc:
+            print(f"[hzz] Failed to set results per page on select {index}: {exc}")
+
+    return False
+
+
+def _page_identity(page: Page) -> str:
+    try:
+        anchors = page.locator(f"a.TitleLink[href*='{DETAIL_URL_KEYWORD}']")
+        if anchors.count() == 0:
+            return ""
+        return anchors.first.get_attribute("href", timeout=5000) or ""
+    except Exception:
+        return ""
+
+
+def _find_next_page_link(page: Page, current_page: int):
+    target_page = current_page + 1
+    candidates: list[tuple[int, int]] = []
+    links = page.locator("a")
+
+    for index in range(links.count()):
+        try:
+            link = links.nth(index)
+            href = link.get_attribute("href", timeout=1000) or ""
+            match = re.search(r"Page\$(\d+)", href)
+            if match:
+                page_number = int(match.group(1))
+            else:
+                link_text = _clean_text(link.inner_text(timeout=1000))
+                if not link_text.isdigit() or "__doPostBack" not in href:
+                    continue
+                page_number = int(link_text)
+
+            if page_number < target_page:
+                continue
+
+            candidates.append((page_number, index))
+        except Exception:
+            continue
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (item[0] != target_page, item[0]))
+    return links.nth(candidates[0][1])
+
+
+def _postback_to_listing_page(page: Page, target_page: int) -> bool:
+    identity_before = _page_identity(page)
+    try:
+        page.evaluate(
+            """(targetPage) => {
+                if (typeof window.__doPostBack !== "function") {
+                    return false;
+                }
+                window.__doPostBack("ctl00$MainContent$gwSearch", `Page$${targetPage}`);
+                return true;
+            }""",
+            target_page,
+        )
+        _wait_after_listing_change(page)
+    except Exception as exc:
+        print(f"[hzz] Direct pagination to page {target_page} failed: {exc}")
+        return False
+
+    identity_after = _page_identity(page)
+    return bool(identity_after and identity_after != identity_before)
+
+
 def _go_to_next_page(page: Page, current_page: int) -> bool:
     try:
+        target_page = current_page + 1
         next_button = page.locator(
             "ul.pagination a:has-text('Sljede'), ul.pagination a[aria-label*='Sljede'], "
             "a:has-text('Sljede'), button:has-text('Sljede'), input[value*='Sljede']"
         ).first
         if next_button.count() == 0:
+            next_button = _find_next_page_link(page, current_page)
+
+        if next_button is None or next_button.count() == 0:
+            for attempt in range(1, 4):
+                if _postback_to_listing_page(page, target_page):
+                    return True
+                print(
+                    f"[hzz] Direct pagination to page {target_page} "
+                    f"did not change listings; retry {attempt}/3"
+                )
+                page.wait_for_timeout(1000)
             return False
 
-        page_marker_before = page.locator(f"text=Stranica {current_page}").count()
+        identity_before = _page_identity(page)
         next_button.click(timeout=10000)
-        try:
-            page.wait_for_load_state("networkidle", timeout=30000)
-        except PlaywrightTimeoutError:
-            page.wait_for_load_state("domcontentloaded", timeout=10000)
-        page.wait_for_timeout(500)
+        _wait_after_listing_change(page)
 
-        if page_marker_before and page.locator(f"text=Stranica {current_page + 1}").count():
+        identity_after = _page_identity(page)
+        if identity_after and identity_after != identity_before:
             return True
 
-        return True
+        print(
+            f"[hzz] Pagination click to page {target_page} "
+            "did not change listings; trying direct pagination"
+        )
+        for attempt in range(1, 4):
+            if _postback_to_listing_page(page, target_page):
+                return True
+            print(
+                f"[hzz] Direct pagination to page {target_page} "
+                f"did not change listings; retry {attempt}/3"
+            )
+            page.wait_for_timeout(1000)
+
+        return False
     except PlaywrightTimeoutError:
         print(f"[hzz] Timeout while moving to page {current_page + 1}")
         return False
@@ -385,13 +653,18 @@ def _go_to_next_page(page: Page, current_page: int) -> bool:
 def scrape_hzz(
     max_pages: int = 3,
     category: str | None = None,
+    group: str | None = None,
     company_limit: int | None = None,
+    start_page: int = 1,
+    results_per_page: int | None = 75,
+    use_subgroups: bool = True,
 ) -> list[dict]:
     headless = os.getenv("HEADLESS", "true") == "true"
     jobs: list[dict] = []
     seen_urls: set[str] = set()
     seen_company_keys: set[str] = set()
     resolved_category = _resolve_category(category)
+    start_page = max(1, start_page)
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=headless)
@@ -400,47 +673,92 @@ def scrape_hzz(
         detail_page = context.new_page()
 
         try:
-            if resolved_category:
-                _select_category(page, resolved_category)
-            else:
-                page.goto(BASE_URL, wait_until="domcontentloaded", timeout=60000)
-                page.wait_for_timeout(1000)
+            def scrape_selected_listing(listing_label: str = "") -> None:
+                if results_per_page is not None:
+                    _set_results_per_page(page, results_per_page)
 
-            for page_number in range(1, max_pages + 1):
-                try:
-                    page_jobs = _collect_listing_rows(page)
-                    for job in page_jobs:
-                        detail_url = job["detail_url"]
-                        if detail_url in seen_urls:
-                            continue
+                if start_page > 1 and not _postback_to_listing_page(page, start_page):
+                    raise RuntimeError(f"Could not move to HZZ listing page {start_page}")
 
-                        detail_fields = _scrape_detail_page(detail_page, detail_url)
-                        job.update(detail_fields)
-                        job["source"] = "hzz"
+                end_page = start_page + max_pages - 1
+                for page_number in range(start_page, end_page + 1):
+                    try:
+                        page_jobs = _collect_listing_rows(page)
+                        if not page_jobs and page_number > 1:
+                            print(f"[hzz] Listing page {page_number} returned no rows; retrying")
+                            if _postback_to_listing_page(page, page_number):
+                                page_jobs = _collect_listing_rows(page)
 
-                        if company_limit is not None:
-                            company_key = _company_limit_key(job.get("company", ""), detail_url)
-                            if company_key in seen_company_keys:
+                        prefix = f"[{listing_label}] " if listing_label else ""
+                        print(
+                            f"[hzz] {prefix}Scraping listing page {page_number}: "
+                            f"{len(page_jobs)} rows"
+                        )
+                        for job in page_jobs:
+                            detail_url = job["detail_url"]
+                            if detail_url in seen_urls:
                                 continue
-                            seen_company_keys.add(company_key)
 
-                        jobs.append(job)
-                        seen_urls.add(detail_url)
-                        time.sleep(0.2)
+                            detail_fields = _scrape_detail_page(detail_page, detail_url)
+                            job.update(detail_fields)
+                            job["source"] = "hzz"
+                            if listing_label:
+                                job["group"] = listing_label
 
+                            if company_limit is not None:
+                                company_key = _company_limit_key(job.get("company", ""), detail_url)
+                                if company_key in seen_company_keys:
+                                    continue
+                                seen_company_keys.add(company_key)
+
+                            jobs.append(job)
+                            seen_urls.add(detail_url)
+                            time.sleep(0.2)
+
+                            if company_limit is not None and len(seen_company_keys) >= company_limit:
+                                break
+                    except Exception as exc:
+                        print(f"[hzz] Failed while scraping listing page {page_number}: {exc}")
+
+                    if company_limit is not None and len(seen_company_keys) >= company_limit:
+                        break
+
+                    if page_number >= end_page:
+                        break
+
+                    if not _go_to_next_page(page, page_number):
+                        break
+
+            if resolved_category and group:
+                _select_category_group(page, resolved_category, group)
+                scrape_selected_listing(group)
+            elif resolved_category and use_subgroups:
+                page.goto(LANDING_URL, wait_until="domcontentloaded", timeout=60000)
+                page.wait_for_timeout(1000)
+                groups = _discover_category_group_links(page, resolved_category)
+                if groups:
+                    print(f"[hzz] Found {len(groups)} subgroups for category '{resolved_category}'")
+                    for group_item in groups:
+                        group_label = group_item["label"]
+                        print(f"[hzz] Scraping subgroup: {group_label}")
+                        _select_category_group(page, resolved_category, group_label)
+                        scrape_selected_listing(group_label)
                         if company_limit is not None and len(seen_company_keys) >= company_limit:
                             break
-                except Exception as exc:
-                    print(f"[hzz] Failed while scraping listing page {page_number}: {exc}")
-
-                if company_limit is not None and len(seen_company_keys) >= company_limit:
-                    break
-
-                if page_number >= max_pages:
-                    break
-
-                if not _go_to_next_page(page, page_number):
-                    break
+                else:
+                    print(
+                        f"[hzz] No subgroups found for category '{resolved_category}', "
+                        "scraping category directly"
+                    )
+                    _select_category(page, resolved_category)
+                    scrape_selected_listing()
+            else:
+                if resolved_category:
+                    _select_category(page, resolved_category)
+                else:
+                    page.goto(BASE_URL, wait_until="domcontentloaded", timeout=60000)
+                    page.wait_for_timeout(1000)
+                scrape_selected_listing()
         finally:
             context.close()
             browser.close()
