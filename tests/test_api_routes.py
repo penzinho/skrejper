@@ -291,6 +291,65 @@ class ApiRoutesTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["run_id"], "run-mp-sync-1")
 
+    @patch("app.api.main.scrape_and_store_gelbeseiten")
+    def test_run_gelbeseiten_scraper_route_calls_store_service(self, scrape_and_store_gelbeseiten_mock):
+        scrape_and_store_gelbeseiten_mock.return_value = {
+            "run_id": "run-gs-1",
+            "source": "gelbeseiten",
+            "status": "completed",
+            "scraped_count": 12,
+            "upserted_count": 12,
+            "snapshot_count": 12,
+            "failed_count": 0,
+            "error": None,
+        }
+
+        response = self.client.post(
+            "/scrapers/gelbeseiten",
+            json={
+                "query": "personalvermittlung",
+                "location": "bundesweit",
+                "max_pages": 2,
+                "company_limit": 300,
+                "async_job": False,
+            },
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["run_id"], "run-gs-1")
+        scrape_and_store_gelbeseiten_mock.assert_called_once_with(
+            query="personalvermittlung",
+            location="bundesweit",
+            max_pages=2,
+            company_limit=300,
+        )
+
+    @patch("app.api.main.enqueue_task")
+    def test_run_gelbeseiten_scraper_route_queues_by_default(self, enqueue_task_mock):
+        enqueue_task_mock.return_value = {
+            "task_id": "task-gs-1",
+            "task_name": "app.tasks.scrape_gelbeseiten",
+            "status": "queued",
+            "queued_at": "2026-04-09T10:00:00+00:00",
+        }
+
+        response = self.client.post(
+            "/scrapers/gelbeseiten",
+            json={"query": "personalvermittlung", "location": "bundesweit", "max_pages": 2},
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["task_id"], "task-gs-1")
+        enqueue_task_mock.assert_called_once_with(
+            "app.tasks.scrape_gelbeseiten",
+            query="personalvermittlung",
+            location="bundesweit",
+            max_pages=2,
+            company_limit=None,
+        )
+
     @patch("app.api.main.scrape_and_store_mojposao")
     @patch("app.api.main.scrape_and_store_hzz")
     def test_run_all_scrapers_route_calls_both_store_services(

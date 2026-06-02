@@ -6,6 +6,7 @@ Current sources:
 
 - `HZZ`
 - `MojPosao`
+- `GelbeSeiten`
 
 The API supports synchronous execution and queued background jobs through Celery/Redis.
 
@@ -125,6 +126,7 @@ Useful endpoints:
 - `GET /scrapers/mojposao/categories`
 - `POST /scrapers/hzz`
 - `POST /scrapers/mojposao`
+- `POST /scrapers/gelbeseiten`
 - `POST /scrapers/run-all`
 - `GET /queue/tasks/{task_id}`
 - `GET /jobs/email-targets`
@@ -147,6 +149,7 @@ Only scraping execution endpoints are protected:
 
 - `POST /scrapers/hzz`
 - `POST /scrapers/mojposao`
+- `POST /scrapers/gelbeseiten`
 - `POST /scrapers/run-all`
 
 Send the API key in the `x-api-key` header:
@@ -165,6 +168,15 @@ curl -X POST http://127.0.0.1:8000/scrapers/mojposao \
   -H 'content-type: application/json' \
   -H 'x-api-key: your-api-key' \
   -d '{"keyword": "python", "max_clicks": 3, "company_limit": 300, "async_job": true}'
+```
+
+GelbeSeiten example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/scrapers/gelbeseiten \
+  -H 'content-type: application/json' \
+  -H 'x-api-key: your-api-key' \
+  -d '{"query": "personalvermittlung", "location": "bundesweit", "max_pages": 2, "async_job": false}'
 ```
 
 If the header is missing or invalid, the API returns `401 Invalid API key`.
@@ -192,6 +204,16 @@ curl http://127.0.0.1:8000/queue/tasks/<task_id>
 ./.venv/bin/python -m unittest tests.test_api_routes
 ./.venv/bin/python -m unittest tests.test_scrape_store
 ./.venv/bin/python -m unittest tests.test_email_outreach
+```
+
+CSV export example:
+
+```bash
+./.venv/bin/python scripts/export_gelbeseiten_csv.py \
+  --query personalvermittlung \
+  --location bundesweit \
+  --max-pages 2 \
+  --output output/gelbeseiten-personalvermittlung.csv
 ```
 
 ## Project Layout

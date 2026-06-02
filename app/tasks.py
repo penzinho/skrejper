@@ -5,7 +5,11 @@ from app.services.email_outreach import (
     send_email_campaign,
 )
 from app.services.lead_enrichment import enrich_scrape_run_emails
-from app.services.scrape_store import scrape_and_store_hzz, scrape_and_store_mojposao
+from app.services.scrape_store import (
+    scrape_and_store_gelbeseiten,
+    scrape_and_store_hzz,
+    scrape_and_store_mojposao,
+)
 
 
 celery_app = get_celery_app()
@@ -35,6 +39,21 @@ def scrape_mojposao_task(
         keyword=keyword,
         max_clicks=max_clicks,
         category=category,
+        company_limit=company_limit,
+    )
+
+
+@celery_app.task(name="app.tasks.scrape_gelbeseiten")
+def scrape_gelbeseiten_task(
+    query: str = "personalvermittlung",
+    location: str = "bundesweit",
+    max_pages: int = 1,
+    company_limit: int | None = None,
+) -> dict:
+    return scrape_and_store_gelbeseiten(
+        query=query,
+        location=location,
+        max_pages=max_pages,
         company_limit=company_limit,
     )
 

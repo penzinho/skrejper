@@ -31,7 +31,11 @@ from app.services.email_outreach import (
     upsert_email_template,
     upsert_email_warmup_settings,
 )
-from app.services.scrape_store import scrape_and_store_hzz, scrape_and_store_mojposao
+from app.services.scrape_store import (
+    scrape_and_store_gelbeseiten,
+    scrape_and_store_hzz,
+    scrape_and_store_mojposao,
+)
 
 SCRAPER_API_KEY_ENV_VAR = "SCRAPER_API_KEY"
 CORS_ALLOW_ORIGINS_ENV_VAR = "CORS_ALLOW_ORIGINS"
@@ -327,6 +331,14 @@ class MojPosaoScrapeRequest(BaseModel):
     async_job: bool = True
 
 
+class GelbeSeitenScrapeRequest(BaseModel):
+    query: str = "personalvermittlung"
+    location: str = "bundesweit"
+    max_pages: int = Field(default=1, ge=1)
+    company_limit: int | None = Field(default=None, ge=1)
+    async_job: bool = True
+
+
 class RunAllScrapersRequest(BaseModel):
     hzz: HZZScrapeRequest = Field(default_factory=HZZScrapeRequest)
     mojposao: MojPosaoScrapeRequest = Field(default_factory=MojPosaoScrapeRequest)
@@ -506,6 +518,7 @@ HZZ_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/hzz/categor
 MOJPOSAO_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/mojposao/categories")]
 HZZ_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/hzz")]
 MOJPOSAO_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/mojposao")]
+GELBESEITEN_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/gelbeseiten")]
 RUN_ALL_SCRAPERS_RATE_LIMIT = [rate_limit(5, 60, scope="POST:/scrapers/run-all")]
 
 
@@ -590,6 +603,37 @@ def run_mojposao_scraper(payload: MojPosaoScrapeRequest, _: ProtectedScraperRout
         keyword=payload.keyword,
         max_clicks=payload.max_clicks,
         category=payload.category,
+        company_limit=payload.company_limit,
+    )
+    _raise_for_failed_summary(summary)
+    return summary
+
+
+@app.post(
+    "/api/scrapers/gelbeseiten",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=GELBESEITEN_SCRAPER_RATE_LIMIT,
+    include_in_schema=False,
+)
+@app.post(
+    "/scrapers/gelbeseiten",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=GELBESEITEN_SCRAPER_RATE_LIMIT,
+)
+def run_gelbeseiten_scraper(payload: GelbeSeitenScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.scrape_gelbeseiten",
+            query=payload.query,
+            location=payload.location,
+            max_pages=payload.max_pages,
+            company_limit=payload.company_limit,
+        )
+
+    summary = scrape_and_store_gelbeseiten(
+        query=payload.query,
+        location=payload.location,
+        max_pages=payload.max_pages,
         company_limit=payload.company_limit,
     )
     _raise_for_failed_summary(summary)

@@ -1,7 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-from app.services.scrape_store import normalize_hzz_job, normalize_mojposao_job, scrape_and_store_hzz
+from app.services.scrape_store import (
+    normalize_gelbeseiten_agency,
+    normalize_hzz_job,
+    normalize_mojposao_job,
+    scrape_and_store_gelbeseiten,
+    scrape_and_store_hzz,
+)
 
 
 class FakeStorage:
@@ -104,6 +110,34 @@ class ScrapeStoreTests(unittest.TestCase):
         self.assertIsNone(normalized["employer_email"])
         self.assertIsNone(normalized["employer_phone"])
         self.assertIsNone(normalized["employer_address"])
+
+    def test_normalize_gelbeseiten_agency_maps_contact_fields(self):
+        normalized = normalize_gelbeseiten_agency(
+            {
+                "title": "R.H. Personalmanagement GmbH",
+                "company": "R.H. Personalmanagement GmbH",
+                "city": "Solingen",
+                "detail_url": "https://www.gelbeseiten.de/gsbiz/0072fe1f-b84e-4fc3-b6a7-9767e8a2d15d",
+                "address": "Merscheider Str. 177",
+                "email": "solingen@rh-personal.de",
+                "phone": "0212 6 45 63 90",
+                "website": "https://www.rh-personal.de/",
+            },
+            query="personalvermittlung",
+            location="bundesweit",
+            run_id="run-3",
+        )
+
+        self.assertEqual(normalized["title"], "R.H. Personalmanagement GmbH")
+        self.assertEqual(normalized["company"], "R.H. Personalmanagement GmbH")
+        self.assertEqual(normalized["location"], "Solingen")
+        self.assertEqual(normalized["category"], "personalvermittlung")
+        self.assertEqual(normalized["source"], "gelbeseiten")
+        self.assertEqual(normalized["employer_address"], "Merscheider Str. 177")
+        self.assertEqual(normalized["employer_email"], "solingen@rh-personal.de")
+        self.assertEqual(normalized["employer_phone"], "0212 6 45 63 90")
+        self.assertEqual(normalized["employer_website"], "https://www.rh-personal.de/")
+        self.assertIsNone(normalized["published_at"])
 
     def test_scrape_and_store_hzz_upserts_and_snapshots(self):
         storage = FakeStorage()
@@ -316,6 +350,51 @@ class ScrapeStoreTests(unittest.TestCase):
             run_id="run-123",
             source="hzz",
             storage=storage,
+        )
+
+    def test_scrape_and_store_gelbeseiten_upserts_contacts(self):
+        storage = FakeStorage()
+
+        def fake_scraper(query, location, max_pages, company_limit=None):
+            self.assertEqual(query, "personalvermittlung")
+            self.assertEqual(location, "bundesweit")
+            self.assertEqual(max_pages, 1)
+            self.assertIsNone(company_limit)
+            return [
+                {
+                    "title": "R.H. Personalmanagement GmbH",
+                    "company": "R.H. Personalmanagement GmbH",
+                    "city": "Solingen",
+                    "detail_url": "https://www.gelbeseiten.de/gsbiz/0072fe1f-b84e-4fc3-b6a7-9767e8a2d15d",
+                    "address": "Merscheider Str. 177",
+                    "email": "solingen@rh-personal.de",
+                    "phone": "0212 6 45 63 90",
+                    "website": "https://www.rh-personal.de/",
+                }
+            ]
+
+        summary = scrape_and_store_gelbeseiten(
+            query="personalvermittlung",
+            location="bundesweit",
+            max_pages=1,
+            storage=storage,
+            scraper=fake_scraper,
+        )
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(summary["scraped_count"], 1)
+        self.assertEqual(summary["upserted_count"], 1)
+        self.assertEqual(summary["snapshot_count"], 1)
+        self.assertEqual(storage.upserted_jobs[0]["source"], "gelbeseiten")
+        self.assertEqual(storage.upserted_jobs[0]["employer_email"], "solingen@rh-personal.de")
+        self.assertEqual(
+            storage.created_runs[0]["filters"],
+            {
+                "query": "personalvermittlung",
+                "location": "bundesweit",
+                "max_pages": 1,
+                "company_limit": None,
+            },
         )
 
 

@@ -93,6 +93,34 @@ def normalize_mojposao_job(job: dict[str, Any], *, run_id: str) -> dict[str, Any
     }
 
 
+def normalize_gelbeseiten_agency(
+    agency: dict[str, Any],
+    *,
+    query: str,
+    location: str,
+    run_id: str,
+) -> dict[str, Any]:
+    return {
+        "title": _clean_text(agency.get("title") or agency.get("company")),
+        "company": _clean_text(agency.get("company")),
+        "location": _clean_text(agency.get("city") or agency.get("location")),
+        "detail_url": _clean_text(agency.get("detail_url")),
+        "published_at": None,
+        "category": _clean_text(query),
+        "source": "gelbeseiten",
+        "employer_website": _clean_text(agency.get("website") or agency.get("employer_website")),
+        "employer_email": _clean_text(agency.get("email")),
+        "employer_address": _clean_text(agency.get("address") or agency.get("employer_address")),
+        "employer_phone": _clean_text(agency.get("phone")),
+        "email_enrichment_attempt_count": 0,
+        "email_enrichment_last_attempt_at": None,
+        "email_enrichment_next_attempt_at": None,
+        "email_enrichment_unusable": False,
+        "last_run_id": run_id,
+        "updated_at": _utcnow_iso(),
+    }
+
+
 def build_job_snapshot(raw_job: dict[str, Any], normalized_job: dict[str, Any]) -> dict[str, Any]:
     payload = copy.deepcopy(raw_job)
     for key, value in normalized_job.items():
@@ -324,6 +352,49 @@ def scrape_and_store_mojposao(
         filters={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
         scraper=scraper,
         scraper_kwargs={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
+        normalizer=_normalizer,
+        company_limit=company_limit,
+        storage=storage,
+    )
+
+
+def scrape_and_store_gelbeseiten(
+    query: str = "personalvermittlung",
+    location: str = "bundesweit",
+    max_pages: int = 1,
+    company_limit: int | None = None,
+    *,
+    storage: SupabaseStorage | None = None,
+    scraper: Callable[..., list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    if scraper is None:
+        from app.scrapers.gelbeseiten import scrape_gelbeseiten as default_gelbeseiten_scraper
+
+        scraper = default_gelbeseiten_scraper
+
+    def _normalizer(job: dict[str, Any], run_id: str) -> dict[str, Any]:
+        return normalize_gelbeseiten_agency(
+            job,
+            query=query,
+            location=location,
+            run_id=run_id,
+        )
+
+    return _run_scrape_and_store(
+        source="gelbeseiten",
+        filters={
+            "query": query,
+            "location": location,
+            "max_pages": max_pages,
+            "company_limit": company_limit,
+        },
+        scraper=scraper,
+        scraper_kwargs={
+            "query": query,
+            "location": location,
+            "max_pages": max_pages,
+            "company_limit": company_limit,
+        },
         normalizer=_normalizer,
         company_limit=company_limit,
         storage=storage,
