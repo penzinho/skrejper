@@ -10,6 +10,8 @@ Current sources:
 
 The API supports synchronous execution and queued background jobs through Celery/Redis.
 
+Production deployment on Hetzner Cloud is documented in [DEPLOY_HETZNER.md](DEPLOY_HETZNER.md).
+
 ## What It Does
 
 - Scrapes job listings from supported sources

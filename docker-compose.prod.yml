@@ -1,0 +1,132 @@
+services:
+  skrejper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: skrejper:latest
+    container_name: skrejper
+    env_file:
+      - .env
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      SERVICE_NAME: ${SERVICE_NAME:-Skrejper}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_INITIAL_ENRICHMENT_DELAY_HOURS: ${FIRECRAWL_INITIAL_ENRICHMENT_DELAY_HOURS:-3}
+      FIRECRAWL_RETRY_DELAY_HOURS: ${FIRECRAWL_RETRY_DELAY_HOURS:-48}
+      FIRECRAWL_TIMEOUT_SECONDS: ${FIRECRAWL_TIMEOUT_SECONDS:-45}
+      FIRECRAWL_SCRAPE_TIMEOUT_MS: ${FIRECRAWL_SCRAPE_TIMEOUT_MS:-15000}
+      FIRECRAWL_MAX_PAGES_PER_LEAD: ${FIRECRAWL_MAX_PAGES_PER_LEAD:-3}
+    restart: unless-stopped
+    init: true
+    shm_size: "1gb"
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    networks:
+      - skrejper-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  celery-worker:
+    image: skrejper:latest
+    container_name: celery-worker
+    command: ["celery", "-A", "app.celery_app.celery_app", "worker", "--loglevel=info"]
+    env_file:
+      - .env
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      SERVICE_NAME: ${SERVICE_NAME:-Skrejper}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      FIRECRAWL_INITIAL_ENRICHMENT_DELAY_HOURS: ${FIRECRAWL_INITIAL_ENRICHMENT_DELAY_HOURS:-3}
+      FIRECRAWL_RETRY_DELAY_HOURS: ${FIRECRAWL_RETRY_DELAY_HOURS:-48}
+      FIRECRAWL_TIMEOUT_SECONDS: ${FIRECRAWL_TIMEOUT_SECONDS:-45}
+      FIRECRAWL_SCRAPE_TIMEOUT_MS: ${FIRECRAWL_SCRAPE_TIMEOUT_MS:-15000}
+      FIRECRAWL_MAX_PAGES_PER_LEAD: ${FIRECRAWL_MAX_PAGES_PER_LEAD:-3}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      - redis
+      - skrejper
+    networks:
+      - skrejper-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - skrejper-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      - skrejper
+    env_file:
+      - .env
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    networks:
+      - skrejper-net
+    profiles:
+      - tls
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    env_file:
+      - .env
+    ports:
+      - "80:80"
+    volumes:
+      - certbot_www:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    networks:
+      - skrejper-net
+    profiles:
+      - tls
+
+volumes:
+  redis_data:
+    name: redis_data
+  certbot_www:
+    name: certbot_www
+  letsencrypt:
+    name: letsencrypt
+
+networks:
+  skrejper-net:
+    name: skrejper-net

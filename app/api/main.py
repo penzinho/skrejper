@@ -1,6 +1,7 @@
 import os
 import secrets
 from datetime import datetime, timezone
+from html import escape
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
@@ -41,12 +42,15 @@ from app.services.scrape_store import (
 
 SCRAPER_API_KEY_ENV_VAR = "SCRAPER_API_KEY"
 CORS_ALLOW_ORIGINS_ENV_VAR = "CORS_ALLOW_ORIGINS"
-LANDING_PAGE_HTML = """<!DOCTYPE html>
+APP_DOMAIN_ENV_VAR = "APP_DOMAIN"
+PUBLIC_BASE_URL_ENV_VAR = "PUBLIC_BASE_URL"
+SERVICE_NAME_ENV_VAR = "SERVICE_NAME"
+LANDING_PAGE_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ProTalent</title>
+  <title>__SERVICE_NAME__</title>
   <style>
     :root {
       color-scheme: light;
@@ -178,7 +182,7 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
 <body>
   <main>
     <span class="eyebrow">Production Service</span>
-    <h1>ProTalent</h1>
+    <h1>__SERVICE_NAME__</h1>
     <p>
       This service is online, secured with TLS, and operating normally.
     </p>
@@ -186,7 +190,7 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
       <a class="button primary" href="/health">Health Check</a>
     </div>
     <div class="meta">
-      <div>Base URL: <code>https://scrape.protalent.hr</code></div>
+      <div>Base URL: <code>__PUBLIC_BASE_URL__</code></div>
       <div>Primary health endpoint: <code>GET /health</code></div>
     </div>
   </main>
@@ -197,6 +201,30 @@ LANDING_PAGE_HTML = """<!DOCTYPE html>
 
 def _utcnow() -> datetime:
     return datetime.now(_CET)
+
+
+def _get_service_name() -> str:
+    return os.getenv(SERVICE_NAME_ENV_VAR, "Skrejper").strip() or "Skrejper"
+
+
+def _get_public_base_url() -> str:
+    configured = os.getenv(PUBLIC_BASE_URL_ENV_VAR, "").strip().rstrip("/")
+    if configured:
+        return configured
+
+    domain = os.getenv(APP_DOMAIN_ENV_VAR, "scrape.protalent.hr").strip().rstrip("/")
+    if not domain:
+        domain = "scrape.protalent.hr"
+    if "://" in domain:
+        return domain
+    return f"https://{domain}"
+
+
+def _render_landing_page() -> str:
+    return (
+        LANDING_PAGE_TEMPLATE.replace("__SERVICE_NAME__", escape(_get_service_name()))
+        .replace("__PUBLIC_BASE_URL__", escape(_get_public_base_url()))
+    )
 
 
 def _get_allowed_origins() -> list[str]:
@@ -544,7 +572,7 @@ def _should_enqueue(async_job: bool) -> bool:
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def landing_page() -> str:
-    return LANDING_PAGE_HTML
+    return _render_landing_page()
 
 
 @app.get("/health", dependencies=[rate_limit(120, 60)])
