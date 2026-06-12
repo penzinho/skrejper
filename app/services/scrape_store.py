@@ -93,6 +93,28 @@ def normalize_mojposao_job(job: dict[str, Any], *, run_id: str) -> dict[str, Any
     }
 
 
+def normalize_meinestadt_job(job: dict[str, Any], *, run_id: str) -> dict[str, Any]:
+    return {
+        "title": _clean_text(job.get("title")),
+        "company": _clean_text(job.get("company")),
+        "location": _clean_text(job.get("location")),
+        "detail_url": _clean_text(job.get("detail_url")),
+        "published_at": _parse_published_at(job.get("published_at")),
+        "category": _clean_text(job.get("category")),
+        "source": "meinestadt",
+        "employer_website": _clean_text(job.get("employer_website")),
+        "employer_email": _clean_text(job.get("employer_email") or job.get("email")),
+        "employer_address": None,
+        "employer_phone": None,
+        "email_enrichment_attempt_count": 0,
+        "email_enrichment_last_attempt_at": None,
+        "email_enrichment_next_attempt_at": None,
+        "email_enrichment_unusable": False,
+        "last_run_id": run_id,
+        "updated_at": _utcnow_iso(),
+    }
+
+
 def normalize_gelbeseiten_agency(
     agency: dict[str, Any],
     *,
@@ -352,6 +374,33 @@ def scrape_and_store_mojposao(
         filters={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
         scraper=scraper,
         scraper_kwargs={"keyword": keyword, "max_clicks": max_clicks, "category": category, "company_limit": company_limit},
+        normalizer=_normalizer,
+        company_limit=company_limit,
+        storage=storage,
+    )
+
+
+def scrape_and_store_meinestadt(
+    category: str | None = None,
+    max_pages: int = 1,
+    company_limit: int | None = None,
+    *,
+    storage: SupabaseStorage | None = None,
+    scraper: Callable[..., list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    if scraper is None:
+        from app.scrapers.meinestadt import scrape_meinestadt as default_meinestadt_scraper
+
+        scraper = default_meinestadt_scraper
+
+    def _normalizer(job: dict[str, Any], run_id: str) -> dict[str, Any]:
+        return normalize_meinestadt_job(job, run_id=run_id)
+
+    return _run_scrape_and_store(
+        source="meinestadt",
+        filters={"category": category, "max_pages": max_pages, "company_limit": company_limit},
+        scraper=scraper,
+        scraper_kwargs={"category": category, "max_pages": max_pages, "company_limit": company_limit},
         normalizer=_normalizer,
         company_limit=company_limit,
         storage=storage,

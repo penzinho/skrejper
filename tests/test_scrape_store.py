@@ -4,9 +4,11 @@ from unittest.mock import patch
 from app.services.scrape_store import (
     normalize_gelbeseiten_agency,
     normalize_hzz_job,
+    normalize_meinestadt_job,
     normalize_mojposao_job,
     scrape_and_store_gelbeseiten,
     scrape_and_store_hzz,
+    scrape_and_store_meinestadt,
 )
 
 
@@ -108,6 +110,29 @@ class ScrapeStoreTests(unittest.TestCase):
         self.assertEqual(normalized["published_at"], "2026-04-08")
         self.assertEqual(normalized["employer_website"], "https://studio.example.com")
         self.assertIsNone(normalized["employer_email"])
+        self.assertIsNone(normalized["employer_phone"])
+        self.assertIsNone(normalized["employer_address"])
+
+    def test_normalize_meinestadt_job_maps_contact_fields(self):
+        normalized = normalize_meinestadt_job(
+            {
+                "title": "Systemadministrator",
+                "company": "Clarins GmbH",
+                "location": "Muenchen",
+                "detail_url": "https://jobs.meinestadt.de/muenchen/premium?id=100011150713",
+                "published_at": "17.04.2026",
+                "category": "IT & Datenverarbeitung",
+                "employer_email": "myjob@clarins.com",
+                "employer_website": "https://www.clarins.de/",
+            },
+            run_id="run-4",
+        )
+
+        self.assertEqual(normalized["published_at"], "2026-04-17")
+        self.assertEqual(normalized["source"], "meinestadt")
+        self.assertEqual(normalized["employer_email"], "myjob@clarins.com")
+        self.assertEqual(normalized["employer_website"], "https://www.clarins.de/")
+        self.assertEqual(normalized["category"], "IT & Datenverarbeitung")
         self.assertIsNone(normalized["employer_phone"])
         self.assertIsNone(normalized["employer_address"])
 
@@ -395,6 +420,67 @@ class ScrapeStoreTests(unittest.TestCase):
                 "max_pages": 1,
                 "company_limit": None,
             },
+        )
+
+    def test_scrape_and_store_meinestadt_upserts_contacts(self):
+        storage = FakeStorage()
+
+        def fake_scraper(category, max_pages, company_limit=None):
+            self.assertEqual(category, "it_data_processing")
+            self.assertEqual(max_pages, 2)
+            self.assertEqual(company_limit, 2)
+            return [
+                {
+                    "title": "Systemadministrator",
+                    "company": "Clarins GmbH",
+                    "location": "Muenchen",
+                    "detail_url": "https://jobs.meinestadt.de/muenchen/premium?id=100011150713",
+                    "published_at": "17.04.2026",
+                    "category": "IT & Datenverarbeitung",
+                    "employer_email": "myjob@clarins.com",
+                    "employer_website": "https://www.clarins.de/",
+                },
+                {
+                    "title": "IT Support",
+                    "company": "Clarins GmbH",
+                    "location": "Muenchen",
+                    "detail_url": "https://jobs.meinestadt.de/muenchen/premium?id=100011150714",
+                    "published_at": "18.04.2026",
+                    "category": "IT & Datenverarbeitung",
+                    "employer_email": "jobs@clarins.com",
+                    "employer_website": "https://www.clarins.de/",
+                },
+                {
+                    "title": "DevOps Engineer",
+                    "company": "Example AG",
+                    "location": "Berlin",
+                    "detail_url": "https://jobs.meinestadt.de/berlin/premium?id=100011150715",
+                    "published_at": "19.04.2026",
+                    "category": "IT & Datenverarbeitung",
+                    "employer_email": "career@example.com",
+                    "employer_website": "https://example.com/jobs",
+                },
+            ]
+
+        summary = scrape_and_store_meinestadt(
+            category="it_data_processing",
+            max_pages=2,
+            company_limit=2,
+            storage=storage,
+            scraper=fake_scraper,
+        )
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(summary["scraped_count"], 3)
+        self.assertEqual(summary["available_company_count"], 2)
+        self.assertEqual(summary["selected_company_count"], 2)
+        self.assertEqual(summary["upserted_count"], 2)
+        self.assertEqual(summary["snapshot_count"], 2)
+        self.assertEqual(storage.upserted_jobs[0]["employer_email"], "myjob@clarins.com")
+        self.assertEqual(storage.upserted_jobs[1]["company"], "Example AG")
+        self.assertEqual(
+            storage.created_runs[0]["filters"],
+            {"category": "it_data_processing", "max_pages": 2, "company_limit": 2},
         )
 
 

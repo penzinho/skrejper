@@ -15,6 +15,9 @@ idna==3.4
 numpy==2.4.4
 outcome==1.2.0
 pandas==3.0.2
+# Playwright browser binaries are installed separately from the Python package.
+# After `pip install -r requirements.txt`, run:
+# `python -m playwright install chromium firefox webkit`
 playwright==1.58.0
 pycparser==2.21
 pydantic==2.12.5

@@ -17,6 +17,7 @@ from app.db.supabase import get_supabase_storage
 from app.queue import enqueue_task, get_task_status
 from app.rate_limit import rate_limiter
 from app.scrapers.hzz import get_hzz_categories
+from app.scrapers.meinestadt import get_meinestadt_categories
 from app.scrapers.mojposao import get_mojposao_categories
 from app.services.email_outreach import (
     create_email_campaign,
@@ -34,6 +35,7 @@ from app.services.email_outreach import (
 from app.services.scrape_store import (
     scrape_and_store_gelbeseiten,
     scrape_and_store_hzz,
+    scrape_and_store_meinestadt,
     scrape_and_store_mojposao,
 )
 
@@ -331,6 +333,13 @@ class MojPosaoScrapeRequest(BaseModel):
     async_job: bool = True
 
 
+class MeinestadtScrapeRequest(BaseModel):
+    category: str | None = None
+    max_pages: int = Field(default=1, ge=1)
+    company_limit: int | None = Field(default=None, ge=1)
+    async_job: bool = True
+
+
 class GelbeSeitenScrapeRequest(BaseModel):
     query: str = "personalvermittlung"
     location: str = "bundesweit"
@@ -516,8 +525,10 @@ ProtectedScraperRoute = Annotated[None, Depends(require_scraper_api_key)]
 
 HZZ_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/hzz/categories")]
 MOJPOSAO_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/mojposao/categories")]
+MEINESTADT_CATEGORIES_RATE_LIMIT = [rate_limit(60, 60, scope="GET:/scrapers/meinestadt/categories")]
 HZZ_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/hzz")]
 MOJPOSAO_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/mojposao")]
+MEINESTADT_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/meinestadt")]
 GELBESEITEN_SCRAPER_RATE_LIMIT = [rate_limit(10, 60, scope="POST:/scrapers/gelbeseiten")]
 RUN_ALL_SCRAPERS_RATE_LIMIT = [rate_limit(5, 60, scope="POST:/scrapers/run-all")]
 
@@ -551,6 +562,12 @@ def list_hzz_categories() -> list[dict[str, str]]:
 @app.get("/scrapers/mojposao/categories", dependencies=MOJPOSAO_CATEGORIES_RATE_LIMIT)
 def list_mojposao_categories() -> list[dict[str, str]]:
     return get_mojposao_categories()
+
+
+@app.get("/api/scrapers/meinestadt/categories", dependencies=MEINESTADT_CATEGORIES_RATE_LIMIT, include_in_schema=False)
+@app.get("/scrapers/meinestadt/categories", dependencies=MEINESTADT_CATEGORIES_RATE_LIMIT)
+def list_meinestadt_categories() -> list[dict[str, str]]:
+    return get_meinestadt_categories()
 
 
 @app.post(
@@ -603,6 +620,35 @@ def run_mojposao_scraper(payload: MojPosaoScrapeRequest, _: ProtectedScraperRout
         keyword=payload.keyword,
         max_clicks=payload.max_clicks,
         category=payload.category,
+        company_limit=payload.company_limit,
+    )
+    _raise_for_failed_summary(summary)
+    return summary
+
+
+@app.post(
+    "/api/scrapers/meinestadt",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=MEINESTADT_SCRAPER_RATE_LIMIT,
+    include_in_schema=False,
+)
+@app.post(
+    "/scrapers/meinestadt",
+    response_model=ScrapeSummaryResponse | QueuedTaskResponse,
+    dependencies=MEINESTADT_SCRAPER_RATE_LIMIT,
+)
+def run_meinestadt_scraper(payload: MeinestadtScrapeRequest, _: ProtectedScraperRoute) -> dict | JSONResponse:
+    if _should_enqueue(payload.async_job):
+        return _queue_response(
+            "app.tasks.scrape_meinestadt",
+            category=payload.category,
+            max_pages=payload.max_pages,
+            company_limit=payload.company_limit,
+        )
+
+    summary = scrape_and_store_meinestadt(
+        category=payload.category,
+        max_pages=payload.max_pages,
         company_limit=payload.company_limit,
     )
     _raise_for_failed_summary(summary)

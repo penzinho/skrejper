@@ -81,11 +81,14 @@ class ApiRoutesTests(unittest.TestCase):
     def test_prefixed_category_routes_are_available(self):
         hzz_response = self.client.get("/api/scrapers/hzz/categories")
         mojposao_response = self.client.get("/api/scrapers/mojposao/categories")
+        meinestadt_response = self.client.get("/api/scrapers/meinestadt/categories")
 
         self.assertEqual(hzz_response.status_code, 200)
         self.assertEqual(mojposao_response.status_code, 200)
+        self.assertEqual(meinestadt_response.status_code, 200)
         self.assertIsInstance(hzz_response.json(), list)
         self.assertIsInstance(mojposao_response.json(), list)
+        self.assertIsInstance(meinestadt_response.json(), list)
 
     @patch("app.api.main.enqueue_task")
     def test_prefixed_scraper_route_alias_queues_hzz_scraper(self, enqueue_task_mock):
@@ -290,6 +293,62 @@ class ApiRoutesTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["run_id"], "run-mp-sync-1")
+
+    @patch("app.api.main.scrape_and_store_meinestadt")
+    def test_run_meinestadt_scraper_route_calls_store_service(self, scrape_and_store_meinestadt_mock):
+        scrape_and_store_meinestadt_mock.return_value = {
+            "run_id": "run-ms-1",
+            "source": "meinestadt",
+            "status": "completed",
+            "scraped_count": 5,
+            "upserted_count": 4,
+            "snapshot_count": 4,
+            "failed_count": 1,
+            "error": None,
+        }
+
+        response = self.client.post(
+            "/scrapers/meinestadt",
+            json={
+                "category": "it_data_processing",
+                "max_pages": 2,
+                "company_limit": 300,
+                "async_job": False,
+            },
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["run_id"], "run-ms-1")
+        scrape_and_store_meinestadt_mock.assert_called_once_with(
+            category="it_data_processing",
+            max_pages=2,
+            company_limit=300,
+        )
+
+    @patch("app.api.main.enqueue_task")
+    def test_run_meinestadt_scraper_route_queues_by_default(self, enqueue_task_mock):
+        enqueue_task_mock.return_value = {
+            "task_id": "task-ms-1",
+            "task_name": "app.tasks.scrape_meinestadt",
+            "status": "queued",
+            "queued_at": "2026-04-09T10:00:00+00:00",
+        }
+
+        response = self.client.post(
+            "/scrapers/meinestadt",
+            json={"category": "it_data_processing", "max_pages": 2},
+            headers=self._auth_headers(),
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["task_id"], "task-ms-1")
+        enqueue_task_mock.assert_called_once_with(
+            "app.tasks.scrape_meinestadt",
+            category="it_data_processing",
+            max_pages=2,
+            company_limit=None,
+        )
 
     @patch("app.api.main.scrape_and_store_gelbeseiten")
     def test_run_gelbeseiten_scraper_route_calls_store_service(self, scrape_and_store_gelbeseiten_mock):

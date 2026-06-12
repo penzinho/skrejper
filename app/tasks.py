@@ -8,6 +8,7 @@ from app.services.lead_enrichment import enrich_scrape_run_emails
 from app.services.scrape_store import (
     scrape_and_store_gelbeseiten,
     scrape_and_store_hzz,
+    scrape_and_store_meinestadt,
     scrape_and_store_mojposao,
 )
 
@@ -39,6 +40,19 @@ def scrape_mojposao_task(
         keyword=keyword,
         max_clicks=max_clicks,
         category=category,
+        company_limit=company_limit,
+    )
+
+
+@celery_app.task(name="app.tasks.scrape_meinestadt")
+def scrape_meinestadt_task(
+    category: str | None = None,
+    max_pages: int = 1,
+    company_limit: int | None = None,
+) -> dict:
+    return scrape_and_store_meinestadt(
+        category=category,
+        max_pages=max_pages,
         company_limit=company_limit,
     )
 
