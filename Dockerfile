@@ -21,10 +21,10 @@ RUN apt-get update \
 
 RUN python -m venv "${VIRTUAL_ENV}"
 
-COPY requirements.txt .
+COPY requirements.agent.txt .
 
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install --prefer-binary -r requirements.txt
+    && pip install --prefer-binary -r requirements.agent.txt
 
 
 FROM python:3.14-slim AS runtime
@@ -71,6 +71,7 @@ RUN apt-get update \
 
 COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
+COPY agent ./agent
 
 RUN python -m playwright install chromium \
     && addgroup --system app \
@@ -79,9 +80,10 @@ RUN python -m playwright install chromium \
 
 USER app
 
-EXPOSE 8000
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=5).read()" || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# h11ReadTimeout default is 5s — increase for long scrape runs via env if needed
+CMD ["uvicorn", "agent.main:app", "--host", "0.0.0.0", "--port", "8080", "--timeout-keep-alive", "600"]
