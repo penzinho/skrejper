@@ -21,10 +21,10 @@ RUN apt-get update \
 
 RUN python -m venv "${VIRTUAL_ENV}"
 
-COPY requirements.agent.txt .
+COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install --prefer-binary -r requirements.agent.txt
+    && pip install --prefer-binary -r requirements.txt
 
 
 FROM python:3.14-slim AS runtime
