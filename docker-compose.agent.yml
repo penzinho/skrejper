@@ -1,0 +1,13 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.agent
+    environment:
+      HEADLESS: "true"
+      BROWSER_CHANNEL: chromium
