@@ -68,14 +68,15 @@ STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
 check "POST /scrape/meinestadt s pogresnim keyem vraca 401" "401" "$STATUS"
 
 echo ""
-echo "--- Scrape test (1 stranica, moze trajati minutu-dvije) ---"
+echo "--- Scrape test (1 podgrupa, moze trajati 30-60 sekundi) ---"
 
 TMPFILE=$(mktemp /tmp/hzz-test-XXXX.csv)
-STATUS=$(curl -s -o "$TMPFILE" -w "%{http_code}" \
+# group=konobari scrapa samo jednu podgrupu — brzo za testiranje
+STATUS=$(curl -s --max-time 300 -o "$TMPFILE" -w "%{http_code}" \
   -X POST "$BASE_URL/scrape/hzz" \
   -H "x-api-key: $AGENT_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"category":"hospitality_tourism","max_pages":1}')
+  -d '{"category":"hospitality_tourism","group":"konobari","max_pages":1}')
 check "POST /scrape/hzz s ispravnim keyem vraca 200" "200" "$STATUS"
 
 if [ -s "$TMPFILE" ]; then

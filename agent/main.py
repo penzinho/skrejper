@@ -79,6 +79,7 @@ Protected = Annotated[None, Depends(_require_api_key)]
 
 class HZZScrapeRequest(BaseModel):
     category: str = "hospitality_tourism"
+    group: str | None = None
     max_pages: int = Field(default=200, ge=1)
     results_per_page: int = Field(default=75, ge=1)
     country: str = "Hrvatska"
@@ -107,6 +108,7 @@ def health() -> dict:
 def run_hzz(payload: HZZScrapeRequest, _: Protected) -> StreamingResponse:
     jobs = scrape_hzz(
         category=payload.category,
+        group=payload.group,
         max_pages=payload.max_pages,
         results_per_page=payload.results_per_page,
     )
