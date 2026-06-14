@@ -73,7 +73,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
 COPY agent ./agent
 
-RUN python -m playwright install chromium \
+RUN python -m playwright install chromium firefox \
     && addgroup --system app \
     && adduser --system --ingroup app --home /app app \
     && chown -R app:app /app /ms-playwright /opt/venv
