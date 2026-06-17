@@ -11,3 +11,5 @@ services:
     environment:
       HEADLESS: "true"
       BROWSER_CHANNEL: chromium
+    volumes:
+      - ./output:/app/output

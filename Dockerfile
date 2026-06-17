@@ -72,6 +72,7 @@ RUN apt-get update \
 COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
 COPY agent ./agent
+COPY run_arbeitsagentur.py run_arbeitsagentur_multi.py ./
 
 RUN python -m playwright install chromium firefox \
     && addgroup --system app \

@@ -16,11 +16,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.scrapers.arbeitsagentur import scrape_arbeitsagentur
 from app.scrapers.hzz import scrape_hzz
 from app.scrapers.meinestadt import scrape_meinestadt
 
 HZZ_CSV_FIELDS = ["email", "first_name", "last_name", "company", "city", "country"]
 MEINESTADT_CSV_FIELDS = [
+    "email", "first_name", "last_name", "company", "city", "country",
+    "title", "source", "category", "published_at", "detail_url", "employer_website",
+]
+ARBEITSAGENTUR_CSV_FIELDS = [
     "email", "first_name", "last_name", "company", "city", "country",
     "title", "source", "category", "published_at", "detail_url", "employer_website",
 ]
@@ -88,6 +93,16 @@ class HZZScrapeRequest(BaseModel):
 class MeinestadtScrapeRequest(BaseModel):
     category: str = "logistics"
     max_pages: int = Field(default=10, ge=1)
+    country: str = "Germany"
+
+
+class ArbeitsagenturScrapeRequest(BaseModel):
+    category: str | None = None
+    keyword: str | None = None
+    location: str | None = None
+    radius: int | None = None
+    max_pages: int = Field(default=5, ge=1)
+    listing_limit: int | None = None
     country: str = "Germany"
 
 
@@ -174,3 +189,43 @@ def run_meinestadt(payload: MeinestadtScrapeRequest, _: Protected) -> StreamingR
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     filename = f"meinestadt-{payload.category}-{date_str}.csv"
     return _csv_response(_rows_to_csv_bytes(deduped, MEINESTADT_CSV_FIELDS), filename)
+
+
+@app.post("/scrape/arbeitsagentur")
+def run_arbeitsagentur(payload: ArbeitsagenturScrapeRequest, _: Protected) -> StreamingResponse:
+    rows: list[dict] = []
+
+    def on_job(job: dict) -> None:
+        email = (job.get("email") or "").strip()
+        if not email:
+            return
+        rows.append({
+            "email": email,
+            "first_name": "",
+            "last_name": "",
+            "company": (job.get("company") or "").strip(),
+            "city": (job.get("location") or "").strip(),
+            "country": payload.country,
+            "title": (job.get("title") or "").strip(),
+            "source": "arbeitsagentur",
+            "category": (job.get("category") or "").strip(),
+            "published_at": (job.get("published_at") or "").strip(),
+            "detail_url": (job.get("detail_url") or "").strip(),
+            "employer_website": (job.get("employer_website") or "").strip(),
+        })
+
+    scrape_arbeitsagentur(
+        category=payload.category,
+        keyword=payload.keyword,
+        location=payload.location,
+        radius=payload.radius,
+        max_pages=payload.max_pages,
+        listing_limit=payload.listing_limit,
+        on_job=on_job,
+    )
+
+    deduped = _dedupe_by_company(rows)
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    category_slug = (payload.category or payload.keyword or "all").replace(" ", "_")
+    filename = f"arbeitsagentur-{category_slug}-{date_str}.csv"
+    return _csv_response(_rows_to_csv_bytes(deduped, ARBEITSAGENTUR_CSV_FIELDS), filename)
