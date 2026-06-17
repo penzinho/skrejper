@@ -32,12 +32,13 @@ def send(csv_path: Path) -> bool:
         with open(csv_path, encoding="utf-8-sig") as f:
             n_rows = max(0, sum(1 for _ in f) - 1)
 
-        # Parse category + date from filename: arbeitsagentur-<category>-<date>.csv
+        # Parse source + category + date from filename: <source>-<category>-<date>.csv
         parts = csv_path.stem.split("-", 2)
+        source = parts[0].upper() if len(parts) > 0 else "Scraper"
         category = parts[1] if len(parts) > 1 else csv_path.stem
         date = parts[2] if len(parts) > 2 else ""
 
-        subject = f"Arbeitsagentur: {category} — {n_rows} kontakata ({date})"
+        subject = f"{source}: {category} — {n_rows} kontakata ({date})"
         body = (
             f"Scrape završen za kategoriju '{category}' ({date}).\n"
             f"Pronađeno {n_rows} kontakata s e-mailom.\n\n"
