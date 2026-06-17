@@ -11,5 +11,6 @@ services:
     environment:
       HEADLESS: "true"
       BROWSER_CHANNEL: chromium
+      ARBEITSAGENTUR_DETAIL_DELAY_MS: "500"
     volumes:
       - ./output:/app/output
