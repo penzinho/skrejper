@@ -1,0 +1,15 @@
+# Feel free to add your Python dependencies below. For formatting guidelines, see:
+# https://pip.pypa.io/en/latest/reference/requirements-file-format/
+#
+# NOTE: Playwright (and its browser binaries) is preinstalled in the
+# `apify/actor-python-playwright` base image. We intentionally do NOT pin
+# playwright here to avoid pip upgrading it out of sync with the bundled
+# browsers (which would cause "Executable doesn't exist" launch failures).
+apify < 3.0
+# crawlee 0.6.x (pulled by apify<3.0) is incompatible with pydantic >= 2.11,
+# which made specifying both `default` and `default_factory` a hard error and
+# breaks crawlee's HttpHeaders model at import time. Pin to the last 2.10.x.
+pydantic >= 2.10.3, < 2.11
+# browserforge 1.2.4 renamed `download.DATA_FILES` -> `DATA_DIRS`, which breaks
+# crawlee 0.6.12's browserforge workaround at import time. Pin to 1.2.3.
+browserforge == 1.2.3
