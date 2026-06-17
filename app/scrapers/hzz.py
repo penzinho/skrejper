@@ -958,8 +958,10 @@ def scrape_hzz(
     start_page: int = 1,
     results_per_page: int | None = 75,
     use_subgroups: bool = True,
+    skip_ids: set[str] | None = None,
 ) -> list[dict]:
     headless = os.getenv("HEADLESS", "true") == "true"
+    skip_ids = skip_ids or set()
     jobs: list[dict] = []
     seen_urls: set[str] = set()
     seen_company_keys: set[str] = set()
@@ -997,6 +999,11 @@ def scrape_hzz(
                         for job in page_jobs:
                             detail_url = job["detail_url"]
                             if detail_url in seen_urls:
+                                continue
+                            # Already scraped on a previous run -> skip the
+                            # (expensive) detail page load.
+                            if detail_url in skip_ids:
+                                seen_urls.add(detail_url)
                                 continue
 
                             detail_fields = _scrape_detail_page(detail_page, detail_url)

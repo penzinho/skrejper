@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app import seen_store
 from app.scrapers.arbeitsagentur import scrape_arbeitsagentur
 from app.scrapers.hzz import scrape_hzz
 from app.scrapers.meinestadt import scrape_meinestadt
@@ -121,27 +122,40 @@ def health() -> dict:
 
 @app.post("/scrape/hzz")
 def run_hzz(payload: HZZScrapeRequest, _: Protected) -> StreamingResponse:
+    skip_ids = seen_store.load_seen("hzz")
+    seen_emails = seen_store.load_seen("hzz-emails")
     jobs = scrape_hzz(
         category=payload.category,
         group=payload.group,
         max_pages=payload.max_pages,
         results_per_page=payload.results_per_page,
+        skip_ids=skip_ids,
     )
 
     rows: list[dict] = []
-    seen_companies: set[str] = set()
+    run_emails: set[str] = set()
+    new_ids: list[str] = []      # postings we actually harvested an e-mail from
+    new_emails: list[str] = []   # e-mails we output this run
 
     for job in jobs:
         email = (job.get("email") or "").strip()
         if not email:
+            # No e-mail -> don't burn the id; re-check next run (employer may
+            # add a contact later).
             continue
+        # We got an e-mail from this posting -> remember its id so we never
+        # re-fetch its detail page.
+        new_ids.append((job.get("detail_url") or "").strip())
+
         company = (job.get("company") or "").strip()
         if _is_excluded_company(company):
             continue
-        key = _normalize_key(company)
-        if key in seen_companies:
+        # Dedup on the e-mail address, not the company name (names vary in spelling).
+        email_key = email.casefold()
+        if email_key in seen_emails or email_key in run_emails:
             continue
-        seen_companies.add(key)
+        run_emails.add(email_key)
+        new_emails.append(email_key)
         rows.append({
             "email": email,
             "first_name": "",
@@ -150,6 +164,9 @@ def run_hzz(payload: HZZScrapeRequest, _: Protected) -> StreamingResponse:
             "city": (job.get("location") or "").strip(),
             "country": payload.country,
         })
+
+    seen_store.add_seen("hzz", new_ids)
+    seen_store.add_seen("hzz-emails", new_emails)
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     filename = f"hzz-{payload.category}-{date_str}.csv"
@@ -193,12 +210,30 @@ def run_meinestadt(payload: MeinestadtScrapeRequest, _: Protected) -> StreamingR
 
 @app.post("/scrape/arbeitsagentur")
 def run_arbeitsagentur(payload: ArbeitsagenturScrapeRequest, _: Protected) -> StreamingResponse:
+    seen_emails = seen_store.load_seen("arbeitsagentur-emails")
     rows: list[dict] = []
+    run_emails: set[str] = set()
+    new_ids: list[str] = []      # postings we actually harvested an e-mail from
+    new_emails: list[str] = []   # e-mails we output this run
 
     def on_job(job: dict) -> None:
+        # Called for every detail-fetched listing (e-mail or not).
         email = (job.get("email") or "").strip()
         if not email:
+            # No e-mail -> don't burn the id; re-check next run (employer may
+            # add a contact later).
             return
+        # We got an e-mail from this posting -> remember its id so we never
+        # re-fetch its detail page.
+        refnr = (job.get("refnr") or "").strip()
+        if refnr:
+            new_ids.append(refnr)
+        # Dedup on the e-mail address, not the company name (names vary in spelling).
+        email_key = email.casefold()
+        if email_key in seen_emails or email_key in run_emails:
+            return
+        run_emails.add(email_key)
+        new_emails.append(email_key)
         rows.append({
             "email": email,
             "first_name": "",
@@ -222,10 +257,12 @@ def run_arbeitsagentur(payload: ArbeitsagenturScrapeRequest, _: Protected) -> St
         max_pages=payload.max_pages,
         listing_limit=payload.listing_limit,
         on_job=on_job,
+        skip_ids=seen_store.load_seen("arbeitsagentur"),
     )
+    seen_store.add_seen("arbeitsagentur", new_ids)
+    seen_store.add_seen("arbeitsagentur-emails", new_emails)
 
-    deduped = _dedupe_by_company(rows)
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     category_slug = (payload.category or payload.keyword or "all").replace(" ", "_")
     filename = f"arbeitsagentur-{category_slug}-{date_str}.csv"
-    return _csv_response(_rows_to_csv_bytes(deduped, ARBEITSAGENTUR_CSV_FIELDS), filename)
+    return _csv_response(_rows_to_csv_bytes(rows, ARBEITSAGENTUR_CSV_FIELDS), filename)

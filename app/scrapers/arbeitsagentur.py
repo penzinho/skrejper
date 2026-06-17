@@ -636,6 +636,7 @@ def scrape_arbeitsagentur(
     radius: int | None = None,
     listing_limit: int | None = None,
     on_job: Callable[[dict], None] | None = None,
+    skip_ids: set[str] | None = None,
 ) -> list[dict]:
     """Scrape postings from the arbeitsagentur.de job board via its public API.
 
@@ -647,9 +648,13 @@ def scrape_arbeitsagentur(
     * `company_limit`  -> stop after this many distinct employers (across the group).
     * `listing_limit`  -> stop after processing this many listings (across the group);
       bounds the number of detail fetches, useful for large groups / smoke tests.
+    * `skip_ids`   -> posting ``refnr``s already scraped on a previous run; these
+      are skipped *before* the detail fetch, so an incremental daily run only pays
+      for new postings. See `app.seen_store`.
 
     Returns one dict per posting (e-mail may be empty; the caller filters).
     """
+    skip_ids = skip_ids or set()
     page_size = max(1, min(int(results_per_page or MAX_PAGE_SIZE), MAX_PAGE_SIZE))
     search_timeout = int(os.getenv("ARBEITSAGENTUR_SEARCH_TIMEOUT", "60"))
     detail_timeout = int(os.getenv("ARBEITSAGENTUR_DETAIL_TIMEOUT", "30"))
@@ -695,6 +700,9 @@ def scrape_arbeitsagentur(
                 if not refnr or refnr in seen_refnrs:
                     continue
                 seen_refnrs.add(refnr)
+                # Already scraped on a previous run -> skip the detail fetch.
+                if refnr in skip_ids:
+                    continue
 
                 job = _enrich_listing(listing, category_label, detail_timeout)
                 processed += 1
