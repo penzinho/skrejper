@@ -1,0 +1,15 @@
+# Desktop app only — deliberately NOT `-r requirements.txt`.
+#
+# The server image (FastAPI, uvicorn, resend, pydantic) has no place in a
+# 200 MB app bundle, and the desktop app never imports any of it.
+#
+# Chromium itself is NOT installed here: the app downloads it on first use into
+# the user's application-data directory. Arbeitsagentur needs no browser at all.
+
+PySide6==6.11.1
+openpyxl==3.1.5
+playwright==1.58.0
+
+# Build only (used by .github/workflows/desktop-build.yml):
+#   pyinstaller==6.16.0
+#   pillow          # icon.ico conversion

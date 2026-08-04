@@ -15,6 +15,7 @@ State lives under ``output/state`` because ``output`` is already a persisted
 bind-mount in docker-compose, so the set survives container restarts/redeploys.
 """
 
+import os
 import threading
 from collections.abc import Iterable
 from pathlib import Path
@@ -25,8 +26,20 @@ STATE_DIR = _PROJECT_ROOT / "output" / "state"
 _LOCK = threading.Lock()
 
 
+def state_dir() -> Path:
+    """Where the seen-id files live.
+
+    Defaults to ``output/state`` next to the repo, which is the docker-compose
+    bind-mount. The desktop app overrides it via ``SKREJPER_STATE_DIR`` because a
+    packaged .app/.exe bundle is read-only, so the state has to live in the
+    user's application-data directory to survive an app update.
+    """
+    override = os.getenv("SKREJPER_STATE_DIR", "").strip()
+    return Path(override).expanduser() if override else STATE_DIR
+
+
 def _path(source: str) -> Path:
-    return STATE_DIR / f"seen-{source}.txt"
+    return state_dir() / f"seen-{source}.txt"
 
 
 def load_seen(source: str) -> set[str]:
@@ -49,7 +62,7 @@ def add_seen(source: str, ids: Iterable[str]) -> int:
     if not new_ids:
         return 0
     with _LOCK:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        state_dir().mkdir(parents=True, exist_ok=True)
         with _path(source).open("a", encoding="utf-8") as handle:
             handle.write("\n".join(new_ids) + "\n")
     return len(new_ids)

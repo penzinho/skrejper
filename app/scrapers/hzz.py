@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from typing import Callable
 from urllib.parse import urljoin
 
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
@@ -959,6 +960,7 @@ def scrape_hzz(
     results_per_page: int | None = 75,
     use_subgroups: bool = True,
     skip_ids: set[str] | None = None,
+    on_job: Callable[[dict], None] | None = None,
 ) -> list[dict]:
     headless = os.getenv("HEADLESS", "true") == "true"
     skip_ids = skip_ids or set()
@@ -1020,6 +1022,11 @@ def scrape_hzz(
 
                             jobs.append(job)
                             seen_urls.add(detail_url)
+                            if on_job is not None:
+                                try:
+                                    on_job(job)
+                                except Exception as exc:
+                                    print(f"[hzz] on_job callback failed: {exc}")
                             time.sleep(0.2)
 
                             if company_limit is not None and len(seen_company_keys) >= company_limit:

@@ -1,0 +1,116 @@
+name: Desktop build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+    paths:
+      - "app/**"
+      - "packaging/**"
+      - "skrejper_gui.py"
+      - "requirements-desktop.txt"
+      - ".github/workflows/desktop-build.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-desktop.txt
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -t .
+      - name: Smoke-test the window
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python skrejper_gui.py --self-test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            asset: Skrejper-macOS-arm64
+          - os: macos-13
+            asset: Skrejper-macOS-intel
+          - os: windows-latest
+            asset: Skrejper-Windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-desktop.txt
+          pip install pyinstaller==6.16.0 pillow
+
+      - name: Build platform icons
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python packaging/make_icons.py --platform
+
+      - name: Build app
+        run: pyinstaller packaging/skrejper.spec --noconfirm
+
+      - name: Smoke-test the built app (macOS)
+        if: runner.os == 'macOS'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./dist/Skrejper.app/Contents/MacOS/Skrejper --self-test
+
+      - name: Smoke-test the built app (Windows)
+        if: runner.os == 'Windows'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: ./dist/Skrejper/Skrejper.exe --self-test
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        # ditto, not zip: it preserves the .app bundle's symlinks and metadata.
+        run: ditto -c -k --keepParent dist/Skrejper.app ${{ matrix.asset }}.zip
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path dist/Skrejper/* -DestinationPath ${{ matrix.asset }}.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}.zip
+          retention-days: 30
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}.zip
+          # The builds are unsigned; say so where people download them.
+          body: |
+            Skrejper desktop — HZZ i Arbeitsagentur, lokalno.
+
+            Buildovi nisu potpisani:
+            - **macOS**: prvi put desni klik na aplikaciju → *Open* → *Open*.
+              Ako se i dalje buni: `xattr -dr com.apple.quarantine Skrejper.app`
+            - **Windows**: SmartScreen → *More info* → *Run anyway*
+
+            Za HZZ se pri prvom pokretanju jednom preuzima Chromium (~150 MB).
+            Arbeitsagentur radi odmah.

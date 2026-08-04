@@ -2,3 +2,11 @@ venv/
 .env
 __pycache__/
 output/state/
+
+# Desktop build artifacts
+build/
+dist/
+*.zip
+app/desktop/resources/icon.ico
+app/desktop/resources/icon.icns
+.DS_Store
