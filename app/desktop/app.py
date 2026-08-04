@@ -18,7 +18,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} — skrejper oglasa")
-        self.setMinimumSize(940, 720)
+        self.setMinimumSize(1040, 760)
 
         self.tabs = QTabWidget()
         self.hzz_tab = HzzTab()

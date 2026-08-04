@@ -74,6 +74,19 @@ class ArbeitsagenturTab(BaseScrapeTab):
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         selection_layout.addWidget(hint)
+
+        # These live under the category list rather than in "Opcije": the right
+        # column is the taller of the two, and this is where the spare room is.
+        self.skip_seen = QCheckBox("Preskoči oglase koje sam već skrejpao")
+        self.skip_seen.setToolTip(
+            "Pamti se u korisničkoj mapi aplikacije. Bez ovoga se svaki put ide ispočetka."
+        )
+        self.dedupe_company = QCheckBox("Samo jedan oglas po firmi")
+        self.write_xlsx = QCheckBox("Spremi i Excel (.xlsx)")
+        selection_layout.addSpacing(4)
+        for box in (self.skip_seen, self.dedupe_company, self.write_xlsx):
+            selection_layout.addWidget(box)
+
         selection_layout.addStretch(1)
         layout.addWidget(selection, 3)
 
@@ -117,12 +130,6 @@ class ArbeitsagenturTab(BaseScrapeTab):
         self.company_limit.setRange(0, 100000)
         self.company_limit.setSpecialValueText("bez ograničenja")
         options_form.addRow("Maks. firmi:", self.company_limit)
-
-        self.skip_seen = QCheckBox("Preskoči oglase koje sam već skrejpao")
-        self.dedupe_company = QCheckBox("Samo jedan oglas po firmi")
-        self.write_xlsx = QCheckBox("Spremi i Excel (.xlsx)")
-        for box in (self.skip_seen, self.dedupe_company, self.write_xlsx):
-            options_form.addRow("", box)
 
         right.addWidget(options)
         right.addStretch(1)

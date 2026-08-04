@@ -58,6 +58,15 @@ class BaseScrapeTab(QWidget):
     def table_columns(self) -> list[tuple[str, str]]:
         raise NotImplementedError
 
+    def column_widths(self) -> list[int]:
+        """Starting width per column; the last one stretches to fill the rest.
+
+        Company and e-mail are what you actually read while a run is going, so
+        they get the room — without this the header shares width evenly and both
+        end up elided.
+        """
+        return [230, 210, 130, 150]
+
     def load_settings(self) -> None:
         pass
 
@@ -111,6 +120,9 @@ class BaseScrapeTab(QWidget):
         self.progress.setTextVisible(False)
         self.progress.setRange(0, 1)
         self.progress.setValue(0)
+        # Shown only while a run is going; an idle track just reads as a
+        # stray grey bar under the buttons.
+        self.progress.setVisible(False)
         controls_layout.addWidget(self.progress)
 
         self.status_label = QLabel("Spremno.")
@@ -128,8 +140,11 @@ class BaseScrapeTab(QWidget):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setAlternatingRowColors(True)
+        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        for index, width in enumerate(self.column_widths()[: self.table.columnCount()]):
+            self.table.setColumnWidth(index, width)
 
         self.console = QPlainTextEdit()
         self.console.setObjectName("console")
@@ -152,9 +167,9 @@ class BaseScrapeTab(QWidget):
         splitter.setStretchFactor(1, 2)
         # The form needs real room or the options group collapses to a sliver on
         # first show; the results pane can start small and grow as rows arrive.
-        form_scroll.setMinimumHeight(300)
+        form_scroll.setMinimumHeight(330)
         results.setMinimumHeight(180)
-        splitter.setSizes([560, 240])
+        splitter.setSizes([700, 200])
 
         layout.addWidget(splitter)
 
@@ -207,6 +222,7 @@ class BaseScrapeTab(QWidget):
         self._files = []
         self._truncated = False
         self.stats_label.setText("")
+        self.progress.setVisible(True)
         self.progress.setRange(0, 0)
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
@@ -299,6 +315,7 @@ class BaseScrapeTab(QWidget):
         QMessageBox.critical(self, "Skrejpanje nije uspjelo", message)
 
     def _on_finished(self) -> None:
+        self.progress.setVisible(False)
         self.progress.setRange(0, 1)
         self.progress.setValue(1)
         self.start_button.setEnabled(True)

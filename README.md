@@ -61,6 +61,9 @@ Korisno znati:
 - Na Arbeitsagentur tabu *Maks. stranica* je **po Berufsfeldu**, ne po kategoriji — kategorija
   s 19 polja napravi 19 × toliko pretraga.
 
+Sučelje je u Windows 11 (Fluent) stilu i prati sistemsku svijetlu/tamnu temu. Isti izgled je i na
+macu — namjerno, da aplikacija izgleda isto na oba računala.
+
 ### Pokretanje iz koda
 
 ```bash

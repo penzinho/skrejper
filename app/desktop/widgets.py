@@ -31,8 +31,8 @@ class CheckList(QWidget):
         self.list.setSelectionMode(QListWidget.NoSelection)
         # Capped so the groups below the list (search, options) stay on screen
         # without scrolling; the list scrolls internally instead.
-        self.list.setMinimumHeight(130)
-        self.list.setMaximumHeight(180)
+        self.list.setMinimumHeight(140)
+        self.list.setMaximumHeight(172)
         self.list.itemChanged.connect(lambda _item: self._on_changed())
         layout.addWidget(self.list)
 
