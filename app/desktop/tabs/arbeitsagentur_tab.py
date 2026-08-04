@@ -39,6 +39,11 @@ DEFAULTS = {
 class ArbeitsagenturTab(BaseScrapeTab):
     source = "arbeitsagentur"
     settings_section = "arbeitsagentur"
+    page_title = "Arbeitsagentur — Jobsuche"
+    page_subtitle = (
+        "Njemački javni portal, preko službenog API-ja. Bez preglednika, "
+        "radi odmah."
+    )
 
     def __init__(self, parent=None) -> None:
         self._categories = get_arbeitsagentur_categories()

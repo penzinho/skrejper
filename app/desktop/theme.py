@@ -203,6 +203,53 @@ def _draw_dash(path: Path, color: str, size: int = 12) -> Path:
     return path
 
 
+def _draw_document(path: Path, color: str, size: int = 20) -> Path:
+    """Nav icon for HZZ — a job listing."""
+    image = _new_image(size)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    s = size * GLYPH_SCALE
+    painter.setPen(_pen(color, 1.4))
+    painter.drawRoundedRect(
+        s * 0.20, s * 0.13, s * 0.60, s * 0.74, s * 0.08, s * 0.08
+    )
+    painter.setPen(_pen(color, 1.2))
+    for index, right in enumerate((0.66, 0.60, 0.66)):
+        y = s * (0.35 + index * 0.16)
+        painter.drawLine(QPointF(s * 0.32, y), QPointF(s * right, y))
+    painter.end()
+    image.save(str(path), "PNG")
+    return path
+
+
+def _draw_globe(path: Path, color: str, size: int = 20) -> Path:
+    """Nav icon for Arbeitsagentur — a foreign job board."""
+    image = _new_image(size)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    s = size * GLYPH_SCALE
+    painter.setPen(_pen(color, 1.4))
+    painter.setBrush(Qt.NoBrush)
+    radius = s * 0.33
+    centre = QPointF(s * 0.5, s * 0.5)
+    painter.drawEllipse(centre, radius, radius)
+    painter.drawEllipse(centre, radius * 0.45, radius)
+    painter.drawLine(QPointF(s * 0.17, s * 0.5), QPointF(s * 0.83, s * 0.5))
+    painter.drawArc(int(s * 0.17), int(s * 0.28), int(s * 0.66), int(s * 0.30), 0, -180 * 16)
+    painter.end()
+    image.save(str(path), "PNG")
+    return path
+
+
+def nav_icons(tokens: Tokens) -> dict[str, str]:
+    """Icons for the navigation rail, drawn in the primary text colour."""
+    directory = _glyph_dir(tokens)
+    return {
+        "hzz": str(_draw_document(directory / "nav-hzz.png", tokens.text)),
+        "arbeitsagentur": str(_draw_globe(directory / "nav-arbeitsagentur.png", tokens.text)),
+    }
+
+
 def build_glyphs(tokens: Tokens) -> dict[str, str]:
     """Render the stylesheet's icons and return QSS-safe paths."""
     directory = _glyph_dir(tokens)
@@ -265,38 +312,87 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
     QMenu::item:selected {{ background: {t.subtle_hover}; }}
     QMenu::separator {{ height: 1px; background: {t.divider}; margin: 4px 8px; }}
 
-    /* ---- Tabs: Win 11 pill selection ---- */
-    QTabWidget::pane {{
+    /* ---- Navigation rail (Win 11 NavigationView) ---- */
+    QWidget#navRail {{ background: transparent; }}
+    QLabel#appName {{ font-size: 15px; font-weight: 700; }}
+    QLabel#appTag {{ color: {t.text_secondary}; font-size: 11px; }}
+    QListWidget#nav {{
+        background: transparent;
+        border: none;
+        padding: 2px;
+        outline: none;
+    }}
+    QListWidget#nav::item {{
+        color: {t.text};
+        padding: 10px 12px 10px 13px;
+        margin: 2px 4px;
+        border-radius: 6px;
+    }}
+    QListWidget#nav::item:hover {{ background: {t.subtle_hover}; }}
+    QListWidget#nav::item:selected {{
+        background: {t.subtle_hover};
+        color: {t.text};
+        font-weight: 600;
+        /* the accent bar Win 11 puts against the selected entry */
+        border-left: 3px solid {t.accent};
+        padding-left: 10px;
+    }}
+
+    /* ---- Content surface ---- */
+    QWidget#content {{
         background: {t.layer};
         border: 1px solid {t.border};
-        border-radius: 8px;
-        top: -1px;
+        border-radius: 10px;
     }}
+
+    /* ---- Type scale ---- */
+    QLabel#title {{ font-size: 19px; font-weight: 600; }}
+    QLabel#subtitle {{ color: {t.text_secondary}; font-size: 12px; }}
+    QLabel#sectionTitle {{ font-weight: 600; }}
+    QLabel#empty {{ color: {t.text_disabled}; font-size: 13px; }}
+    QLabel#chip {{
+        background: {t.subtle_hover};
+        color: {t.text_secondary};
+        border-radius: 10px;
+        padding: 3px 11px;
+        font-size: 11px;
+        font-weight: 600;
+    }}
+    QLabel#chipAccent {{
+        background: {t.accent};
+        color: {t.on_accent};
+        border-radius: 10px;
+        padding: 3px 11px;
+        font-size: 11px;
+        font-weight: 600;
+    }}
+    QFrame#divider {{ background: {t.divider}; max-height: 1px; border: none; }}
+
+    /* ---- Result tabs: pills, no pane (they sit inside the content card) ---- */
+    QTabWidget::pane {{ border: none; background: transparent; }}
     QTabBar {{ qproperty-drawBase: 0; }}
     QTabBar::tab {{
         background: transparent;
         color: {t.text_secondary};
-        padding: 7px 16px;
-        margin: 0 4px 4px 0;
-        border: 1px solid transparent;
-        border-radius: 6px;
-        min-width: 84px;
+        padding: 5px 14px;
+        margin: 0 4px 6px 0;
+        border-radius: 12px;
+        min-width: 60px;
     }}
-    QTabBar::tab:hover {{ background: {t.subtle_hover}; color: {t.text}; }}
+    QTabBar::tab:hover {{ color: {t.text}; }}
     QTabBar::tab:selected {{
-        background: {t.layer};
+        background: {t.subtle_hover};
         color: {t.text};
-        border-color: {t.border};
         font-weight: 600;
     }}
 
-    /* ---- Cards ---- */
+    /* ---- Inset panels inside the content card ---- */
     QGroupBox {{
-        background: {t.layer};
-        border: 1px solid {t.border};
+        background: {t.background};
+        border: none;
         border-radius: 8px;
         margin-top: 13px;
-        padding: 10px 12px 10px 12px;
+        padding: 12px;
         font-weight: 600;
     }}
     QGroupBox::title {{
@@ -467,6 +563,9 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
     QScrollBar::handle:hover {{ background: {t.text_disabled}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; width: 0; border: none; }}
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+    /* Without this the square where the two scrollbars would meet picks up the
+       checkbox indicator style and paints a stray empty box. */
+    QAbstractScrollArea::corner {{ background: transparent; border: none; }}
 
     QSplitter::handle {{ background: transparent; height: 8px; }}
 

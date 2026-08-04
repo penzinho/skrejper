@@ -35,6 +35,11 @@ DEFAULTS = {
 class HzzTab(BaseScrapeTab):
     source = "hzz"
     settings_section = "hzz"
+    page_title = "HZZ — Burza rada"
+    page_subtitle = (
+        "Hrvatski oglasi s burzarada.hzz.hr. Skrejpa se kroz preglednik, "
+        "pa je sporije od Arbeitsagentura."
+    )
 
     def build_form(self) -> QWidget:
         container = QWidget()

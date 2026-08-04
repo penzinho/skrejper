@@ -1,10 +1,20 @@
-"""Application window."""
+"""Application window: a navigation rail on the left, one page per source."""
 
 import sys
 
-from PySide6.QtCore import QSettings, Qt, QUrl
-from PySide6.QtGui import QAction, QDesktopServices, QIcon
-from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTabWidget
+from PySide6.QtCore import QSettings, QSize, Qt, QUrl
+from PySide6.QtGui import QAction, QDesktopServices, QIcon, QPixmap
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.desktop import paths, theme
 from app.desktop.paths import APP_NAME, ORG_NAME
@@ -12,24 +22,92 @@ from app.desktop.tabs.arbeitsagentur_tab import ArbeitsagenturTab
 from app.desktop.tabs.hzz_tab import HzzTab
 
 ICON_PATH = paths.resource_dir() / "icon.png"
+RAIL_WIDTH = 208
 
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle(f"{APP_NAME} — skrejper oglasa")
-        self.setMinimumSize(1040, 760)
+        self.setWindowTitle(APP_NAME)
+        self.setMinimumSize(1060, 800)
 
-        self.tabs = QTabWidget()
         self.hzz_tab = HzzTab()
         self.arbeitsagentur_tab = ArbeitsagenturTab()
-        self.tabs.addTab(self.hzz_tab, "HZZ")
-        self.tabs.addTab(self.arbeitsagentur_tab, "Arbeitsagentur")
-        self.setCentralWidget(self.tabs)
 
+        self.pages = QStackedWidget()
+        self.pages.addWidget(self.hzz_tab)
+        self.pages.addWidget(self.arbeitsagentur_tab)
+
+        central = QWidget()
+        layout = QHBoxLayout(central)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+        layout.addWidget(self._build_rail())
+
+        content = QWidget()
+        content.setObjectName("content")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.addWidget(self.pages)
+        layout.addWidget(content, 1)
+
+        self.setCentralWidget(central)
         self._build_menu()
         self._restore_geometry()
-        self.statusBar().showMessage(f"Rezultati se spremaju u {paths.default_output_dir()}")
+
+    def _build_rail(self) -> QWidget:
+        rail = QWidget()
+        rail.setObjectName("navRail")
+        rail.setFixedWidth(RAIL_WIDTH)
+        layout = QVBoxLayout(rail)
+        layout.setContentsMargins(6, 8, 6, 8)
+        layout.setSpacing(12)
+
+        brand = QHBoxLayout()
+        brand.setSpacing(9)
+        if ICON_PATH.exists():
+            mark = QLabel()
+            mark.setPixmap(
+                QPixmap(str(ICON_PATH)).scaled(
+                    28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+            )
+            brand.addWidget(mark)
+        titles = QVBoxLayout()
+        titles.setSpacing(0)
+        name = QLabel(APP_NAME)
+        name.setObjectName("appName")
+        tag = QLabel("Oglasi → kontakti")
+        tag.setObjectName("appTag")
+        titles.addWidget(name)
+        titles.addWidget(tag)
+        brand.addLayout(titles)
+        brand.addStretch(1)
+        layout.addLayout(brand)
+
+        icons = theme.nav_icons(theme.tokens_for(self._app()))
+        self.nav = QListWidget()
+        self.nav.setObjectName("nav")
+        self.nav.setIconSize(QSize(19, 19))
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        for label, key in (("HZZ", "hzz"), ("Arbeitsagentur", "arbeitsagentur")):
+            item = QListWidgetItem(label)
+            item.setIcon(QIcon(icons[key]))
+            self.nav.addItem(item)
+        self.nav.setCurrentRow(0)
+        self.nav.currentRowChanged.connect(self.pages.setCurrentIndex)
+        # Sized to its rows so the rail's empty space stays part of the rail
+        # rather than an obviously scrollable list.
+        self.nav.setFixedHeight(self.nav.sizeHintForRow(0) * self.nav.count() + 16)
+        layout.addWidget(self.nav)
+        layout.addStretch(1)
+        return rail
+
+    @staticmethod
+    def _app():
+        from PySide6.QtWidgets import QApplication
+
+        return QApplication.instance()
 
     def _build_menu(self) -> None:
         file_menu = self.menuBar().addMenu("&Datoteka")
@@ -57,7 +135,7 @@ class MainWindow(QMainWindow):
         help_menu.addAction(about)
 
     def _open_output(self) -> None:
-        current = self.tabs.currentWidget()
+        current = self.pages.currentWidget()
         target = getattr(current, "output_edit", None)
         path = target.text().strip() if target else str(paths.default_output_dir())
         QDesktopServices.openUrl(QUrl.fromLocalFile(path))
@@ -108,7 +186,9 @@ class MainWindow(QMainWindow):
         event.accept()
 
 
-def build_application(argv: list[str] | None = None) -> tuple[QApplication, MainWindow]:
+def build_application(argv: list[str] | None = None):
+    from PySide6.QtWidgets import QApplication
+
     paths.configure_environment()
     QApplication.setApplicationName(APP_NAME)
     QApplication.setOrganizationName(ORG_NAME)
@@ -133,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if self_test:
         # Headless sanity check: everything constructed, dropdowns populated,
-        # and both tabs can produce a worker config.
+        # and both pages can produce a worker config.
         window.hzz_tab.build_config()
         window.arbeitsagentur_tab.categories.set_all(True)
         window.arbeitsagentur_tab.build_config()
