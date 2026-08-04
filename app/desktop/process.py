@@ -6,7 +6,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, Signal
+from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, Signal
 
 from app.desktop import paths
 
@@ -33,9 +33,15 @@ class ScrapeProcess(QObject):
     targetStarted = Signal(int, int, str)
     targetDone = Signal(dict)
     succeeded = Signal(dict)
+    stopping = Signal()
     cancelled = Signal(dict)
     failed = Signal(str, str)
     finished = Signal()
+
+    # How long the worker gets to unwind after SIGTERM before it is killed
+    # outright. Long enough for Playwright to close the browser, short enough
+    # that a wedged run does not keep the button greyed out.
+    KILL_GRACE_MS = 4000
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -67,12 +73,15 @@ class ScrapeProcess(QObject):
         self._config_path = Path(handle.name)
 
         argv = worker_argv()
+        # Fill in the browser and state directories only if they are not already
+        # set, then inherit. Writing them unconditionally would silently override
+        # a PLAYWRIGHT_BROWSERS_PATH or SKREJPER_STATE_DIR the user set on
+        # purpose — the very overrides the README documents.
+        paths.configure_environment()
         environment = QProcessEnvironment.systemEnvironment()
         # hzz.py prints without flush=True, so without this the log would arrive
         # in bursts instead of live.
         environment.insert("PYTHONUNBUFFERED", "1")
-        environment.insert("PLAYWRIGHT_BROWSERS_PATH", str(paths.browsers_dir()))
-        environment.insert("SKREJPER_STATE_DIR", str(paths.state_dir()))
         environment.insert("PYTHONIOENCODING", "utf-8")
 
         process = QProcess(self)
@@ -89,13 +98,33 @@ class ScrapeProcess(QObject):
         self.started.emit()
 
     def stop(self) -> None:
-        """Ask the worker to stop, then insist."""
+        """Ask the worker to stop, then insist — without blocking the UI.
+
+        SIGTERM first, so the worker can close its CSV and record the ids it
+        harvested. If it has not gone within the grace period (a wedged browser,
+        or Windows, where terminate() often does not reach a windowless child),
+        it gets killed. Nothing is lost either way: rows are flushed to disk as
+        they arrive.
+        """
         if not self.running:
             return
         self._stopping = True
+        self.stopping.emit()
         self._process.terminate()
-        if not self._process.waitForFinished(3000):
+        QTimer.singleShot(self.KILL_GRACE_MS, self._force_kill)
+
+    def _force_kill(self) -> None:
+        if self._process is not None and self._process.state() != QProcess.NotRunning:
             self._process.kill()
+
+    def wait_for_exit(self, timeout_ms: int = 5000) -> bool:
+        """Block until the worker is gone. Only for application shutdown."""
+        if not self.running:
+            return True
+        if self._process.waitForFinished(timeout_ms):
+            return True
+        self._process.kill()
+        return self._process.waitForFinished(2000)
 
     def _drain_stdout(self) -> None:
         data = bytes(self._process.readAllStandardOutput()).decode("utf-8", errors="replace")

@@ -160,10 +160,11 @@ class BaseScrapeTab(QWidget):
 
     def _connect(self) -> None:
         self.start_button.clicked.connect(self.start)
-        self.stop_button.clicked.connect(self._process.stop)
+        self.stop_button.clicked.connect(self._request_stop)
         self.browse_button.clicked.connect(self._choose_output_dir)
         self.open_button.clicked.connect(self._open_output_dir)
 
+        self._process.stopping.connect(self._on_stopping)
         self._process.logged.connect(self._append_log)
         self._process.rowArrived.connect(self._append_row)
         self._process.progressed.connect(self._update_stats)
@@ -212,6 +213,24 @@ class BaseScrapeTab(QWidget):
         self.open_button.setEnabled(False)
         self.status_label.setText("Pokrećem…")
         self._process.start(config)
+
+    def stop(self) -> None:
+        self._process.stop()
+
+    def wait_for_exit(self, timeout_ms: int = 5000) -> bool:
+        return self._process.wait_for_exit(timeout_ms)
+
+    def _request_stop(self) -> None:
+        self._process.stop()
+
+    def _on_stopping(self) -> None:
+        # Immediate feedback: the worker may take a moment to unwind (Playwright
+        # has a browser to close), and a button that still says "Zaustavi"
+        # invites a second, pointless click.
+        self.stop_button.setEnabled(False)
+        self.stop_button.setText("Zaustavljam…")
+        self.progress.setRange(0, 0)
+        self.status_label.setText("Zaustavljam — spremam ono što je prikupljeno…")
 
     def _choose_output_dir(self) -> None:
         chosen = QFileDialog.getExistingDirectory(self, "Mapa za spremanje", self.output_edit.text())
@@ -284,3 +303,4 @@ class BaseScrapeTab(QWidget):
         self.progress.setValue(1)
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.stop_button.setText("Zaustavi")

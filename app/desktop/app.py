@@ -94,8 +94,13 @@ class MainWindow(QMainWindow):
             if answer != QMessageBox.Yes:
                 event.ignore()
                 return
-            for tab in self._running_tabs():
-                tab._process.stop()
+            running = self._running_tabs()
+            for tab in running:
+                tab.stop()
+            # Blocking here is right: without it the app would exit and leave the
+            # workers (and a headless Chromium) running with nobody reading them.
+            for tab in running:
+                tab.wait_for_exit()
 
         store = QSettings(ORG_NAME, APP_NAME)
         store.setValue("window/geometry", self.saveGeometry())
