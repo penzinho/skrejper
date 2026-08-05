@@ -21,8 +21,13 @@ _SOURCE_MODULES = {
     "lakodoposla": "app.leadgen.sources.lakodoposla",
     "poslovi_rs": "app.leadgen.sources.poslovi_rs",
     "nsz": "app.leadgen.sources.nsz",
-    # "boljiposao" je prazan HTML shell — treba headless
-    # Faza 3 (iza flaga): "infostud", "fzzz", "zzzrs"
+    "infostud": "app.leadgen.sources.infostud",  # DEFAULT_ENABLED=False (ToS)
+    # Još neimplementirano — s cloud egressa nedostupni (provjereno 2026-08-05):
+    #   "boljiposao"  prazan HTML shell (JS-only render iza Cloudflarea) — treba headless
+    #   "fzzz"        fzzz.ba TCP-resetira datacenter IP-eve; prvi korak je s
+    #                 korisnikovog računala snimiti XHR pozive /joboffer stranice
+    #   "zzzrs"       prijava.zzzrs.net isto TCP-resetira; alternativa Glas Srpske
+    #                 (tjedni bilteni) vraća Cloudflare 403 na ovaj egress
 }
 
 

@@ -215,10 +215,19 @@ Trenutni izvori:
 | **Lako do posla** (`lakodoposla.com`) | Srbija | REST API koji vraća **PIB, adresu, telefon, web i email poslodavca inline** — nula enrichmenta |
 | **Poslovi.rs** (`poslovi.rs`) | Srbija | server-rendered, popis oglasa iz `sitemap.xml`, naziv+grad iz oglasa |
 | **NSZ** (`nsz.gov.rs`) | Srbija | sekvencijalni ID-evi `/employee/jobs/preview/{id}`, kontakt telefon u oglasu, filter javnog sektora, transliteracija ćirilice |
+| **Infostud** (`poslovi.infostud.com`) | Srbija | **iza flaga, defaultno isključen** (ToS zabranjuje komercijalno preuzimanje). `sitemap-jobs.xml` + schema.org JobPosting JSON-LD; profil poslodavca nosi PIB/adresu/web |
 
-Sljedeće (iza defaultno isključenih flagova): Infostud (uvjeti korištenja),
-FZZZ i direktni ZZZ RS. BoljiPosao.com servira prazan HTML shell običnom HTTP
-klijentu (render samo kroz JS) pa treba headless — odgođeno.
+Infostud se pokreće samo izričito (`--source infostud`, odnosno kvačica u
+GUI-ju) — uključivanje je svjesna odluka korisnika.
+
+Još neimplementirano (s cloud okruženja nedostupni, provjereno 2026-08-05):
+**BoljiPosao.com** servira prazan HTML shell (JS-only render iza Cloudflarea)
+pa treba headless; **fzzz.ba** i **prijava.zzzrs.net** TCP-resetiraju
+datacenter IP-eve (s normalnog kućnog/uredskog priključka rade), a **Glas
+Srpske** (alternativa za ZZZ RS biltene) vraća Cloudflare 403 na isti egress.
+Prvi korak za FZZZ, kad se radi s dostupne mreže: otvoriti `/joboffer`,
+snimiti XHR pozive i, ako postoji JSON endpoint, koristiti njega umjesto
+DOM-a; `python scripts/leadgen.py fetch-fixtures` sprema stranice za razvoj.
 
 NSZ preslikava i Infostud/LakoDoPosla oglase te je dobrim dijelom javni
 sektor (škole, domovi zdravlja, opštinske uprave). Filter javnog sektora te

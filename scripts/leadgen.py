@@ -52,6 +52,10 @@ FIXTURES = {
     "nsz": [
         ("https://www.nsz.gov.rs/employee/jobs/search", "search.html"),
     ],
+    "infostud": [
+        ("https://poslovi.infostud.com/sitemap-jobs.xml", "jobs-sample.xml"),
+        ("https://poslovi.infostud.com/sitemap-profiles-a.xml", "profiles-sample.xml"),
+    ],
 }
 
 
