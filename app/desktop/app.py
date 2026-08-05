@@ -181,6 +181,7 @@ class MainWindow(QMainWindow):
             f"<b>{APP_NAME}</b> {paths.version_string()}<br><br>"
             "Lokalni skrejper oglasa za HZZ i Arbeitsagentur.<br>"
             "Radi bez servera i baze — sve ostaje na ovom računalu.<br><br>"
+            "Napravio Penzo, 2026.<br><br>"
             f"Podaci aplikacije:<br><code>{paths.app_data_dir()}</code>",
         )
 
