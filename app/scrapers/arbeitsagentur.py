@@ -34,8 +34,26 @@ import urllib.request
 from typing import Callable
 
 API_BASE = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service"
-SEARCH_URL = f"{API_BASE}/pc/v4/jobs"
-DETAIL_URL = f"{API_BASE}/pc/v3/jobdetails/{{enc}}"
+
+# The board versions its paths and retires old ones without notice: /pc/v4/jobs
+# answered for a long time and now 404s. Both documented search paths are tried
+# in turn and the one that answers is remembered for the rest of the run, so a
+# future retirement costs a redundant request rather than a silent empty export.
+SEARCH_PATHS = (
+    "/pc/v6/jobs",
+    "/pc/v4/app/jobs",
+    "/pc/v4/jobs",
+)
+DETAIL_PATHS = (
+    "/pc/v4/jobdetails/{enc}",
+    "/pc/v3/jobdetails/{enc}",
+)
+SEARCH_URL = f"{API_BASE}{SEARCH_PATHS[0]}"
+DETAIL_URL = f"{API_BASE}{DETAIL_PATHS[0]}"
+
+# Resolved on first use, then reused.
+_search_url: str | None = None
+_detail_url: str | None = None
 # Public web URL for a posting, built from its reference number.
 PUBLIC_DETAIL_URL = "https://www.arbeitsagentur.de/jobsuche/jobdetail/{refnr}"
 API_KEY = "jobboerse-jobsuche"
@@ -542,9 +560,10 @@ def _clean_website(url: str) -> str:
     return url
 
 
-def _http_get_json(url: str, timeout: int, attempts: int = 3) -> dict | None:
+def _request_json(url: str, timeout: int, attempts: int = 3) -> tuple[dict | None, int | None]:
     """GET a JSON document with the board's public API key, retrying transient
-    errors. Returns None on a 404 (posting expired) or after exhausting retries.
+    errors. Returns (payload, status): status is the HTTP code when the server
+    answered, None when it never did.
     """
     last_error: Exception | None = None
     for attempt in range(1, attempts + 1):
@@ -554,23 +573,93 @@ def _http_get_json(url: str, timeout: int, attempts: int = 3) -> dict | None:
         )
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                return json.loads(response.read().decode("utf-8")), response.status
         except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                return None  # posting gone; skip quietly
             last_error = exc
-            if exc.code in (400, 401, 403):
-                _log(f"[arbeitsagentur] HTTP {exc.code} for {url}")
-                return None
+            if exc.code in (400, 401, 403, 404):
+                return None, exc.code  # the caller decides how loud to be
         except Exception as exc:  # network / timeout / decode
             last_error = exc
         if attempt < attempts:
             time.sleep(2 * attempt)
     _log(f"[arbeitsagentur] Giving up on {url}: {last_error}")
+    return None, None
+
+
+def _http_get_json(url: str, timeout: int, attempts: int = 3) -> dict | None:
+    """Single-URL fetch. A 404 here means "posting gone" and stays quiet."""
+    payload, status = _request_json(url, timeout, attempts)
+    if payload is None and status in (400, 401, 403):
+        _log(f"[arbeitsagentur] HTTP {status} for {url}")
+    return payload
+
+
+def _search_json(
+    berufsfeld: str | None,
+    keyword: str | None,
+    location: str | None,
+    radius: int | None,
+    page: int,
+    size: int,
+    timeout: int,
+) -> dict | None:
+    """Run a search, resolving which API path this board still answers on.
+
+    A 404 on a *search* is not an expired posting — it means the endpoint moved,
+    which is exactly what happened to /pc/v4/jobs. So it is never swallowed: we
+    move on to the next documented path, and if none answers, we say so.
+    """
+    global _search_url
+
+    candidates = [_search_url] if _search_url else [f"{API_BASE}{path}" for path in SEARCH_PATHS]
+    for base in candidates:
+        payload, status = _request_json(
+            _build_search_url(base, berufsfeld, keyword, location, radius, page, size), timeout
+        )
+        if payload is not None:
+            if _search_url != base:
+                _search_url = base
+                _log(f"[arbeitsagentur] Search endpoint: {base}")
+            return payload
+        if status == 404:
+            continue  # path retired; try the next one
+        if status in (400, 401, 403):
+            _log(f"[arbeitsagentur] HTTP {status} from {base} — check the API key or parameters.")
+        return None
+
+    _log(
+        "[arbeitsagentur] None of the known search endpoints answered "
+        f"({', '.join(SEARCH_PATHS)}). The board's API has moved."
+    )
     return None
 
 
+def _detail_json(enc: str, timeout: int) -> dict | None:
+    """Fetch one posting's detail, resolving the detail path the same way.
+
+    Unlike search, a 404 here is routine — postings expire — so the path is only
+    treated as wrong while it has never once succeeded.
+    """
+    global _detail_url
+
+    if _detail_url:
+        return _http_get_json(_detail_url.format(enc=enc), timeout=timeout)
+
+    for template in DETAIL_PATHS:
+        url = f"{API_BASE}{template}"
+        payload, status = _request_json(url.format(enc=enc), timeout)
+        if payload is not None:
+            _detail_url = url
+            _log(f"[arbeitsagentur] Detail endpoint: {url}")
+            return payload
+        if status in (400, 401, 403):
+            _log(f"[arbeitsagentur] HTTP {status} for {url.format(enc=enc)}")
+            return None
+    return None  # 404 everywhere: this posting is gone, or every path is
+
+
 def _build_search_url(
+    base: str,
     berufsfeld: str | None,
     keyword: str | None,
     location: str | None,
@@ -586,7 +675,7 @@ def _build_search_url(
     if location:
         params.append(("wo", location))
         params.append(("umkreis", str(radius if radius is not None else 25)))
-    return f"{SEARCH_URL}?{urllib.parse.urlencode(params)}"
+    return f"{base}?{urllib.parse.urlencode(params)}"
 
 
 def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> dict | None:
@@ -600,7 +689,7 @@ def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> 
     location = ort or region
 
     enc = base64.b64encode(refnr.encode("utf-8")).decode("ascii")
-    detail = _http_get_json(DETAIL_URL.format(enc=enc), timeout=detail_timeout)
+    detail = _detail_json(enc, timeout=detail_timeout)
 
     description = (detail.get("stellenangebotsBeschreibung") if detail else "") or ""
     company = (
@@ -675,8 +764,9 @@ def scrape_arbeitsagentur(
         total_results: int | None = None
 
         for page in range(1, max_pages + 1):
-            url = _build_search_url(berufsfeld, keyword, location, radius, page, page_size)
-            payload = _http_get_json(url, timeout=search_timeout)
+            payload = _search_json(
+                berufsfeld, keyword, location, radius, page, page_size, search_timeout
+            )
             if payload is None:
                 _log(f"[arbeitsagentur] No response for {berufsfeld!r} page {page}; skipping rest.")
                 break
