@@ -38,6 +38,14 @@ _LEGAL_FORM_RE = re.compile(
     r"(?<![a-z0-9])(?:" + "|".join(re.escape(form).replace(r"\.", r"\.?") for form in _LEGAL_FORMS) + r")\.?(?![a-z0-9])"
 )
 
+# Spelled-out legal boilerplate in registry-style names ("KRKA-FARMA društvo s
+# ograničenom odgovornošću za trgovinu na veliko i malo..."): the phrase and
+# everything after it describes the legal form, not the firm.
+_LEGAL_PHRASE_RE = re.compile(
+    r"\b(?:drustvo s ogranicenom odgovornoscu|dionicko drustvo|deonicko drustvo|"
+    r"akcionarsko drustvo|javno trgovacko drustvo|jednostavno drustvo)\b.*$"
+)
+
 _WS_RE = re.compile(r"\s+")
 _DATE_FORMATS = ("%d.%m.%Y", "%d.%m.%y", "%Y-%m-%d", "%d/%m/%Y", "%d. %m. %Y")
 
@@ -86,6 +94,9 @@ def norm_text(text: str) -> str:
 def norm_company(name: str) -> str:
     """Normalized company name for matching: no legal forms, no punctuation."""
     text = norm_text(name)
+    stripped = _LEGAL_PHRASE_RE.sub(" ", text)
+    if stripped.strip():
+        text = stripped
     text = _LEGAL_FORM_RE.sub(" ", text)
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return " ".join(text.split())
