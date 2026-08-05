@@ -45,11 +45,16 @@ jobs:
             "$B/pc/v6/jobs?page=1&size=2&$BF")
           jq '.ergebnisliste[:2]' <<<"$resp"
 
-          refnr=$(jq -r '.ergebnisliste[0].refnr // empty' <<<"$resp")
-          echo "===== refnr: $refnr"
+          refnr=$(jq -r '.ergebnisliste[0].referenznummer // empty' <<<"$resp")
+          echo "===== referenznummer: $refnr"
           if [ -n "$refnr" ]; then
             enc=$(printf %s "$refnr" | base64 -w0)
-            probe "v4 jobdetails"  "$B/pc/v4/jobdetails/$enc"
-            probe "v3 jobdetails"  "$B/pc/v3/jobdetails/$enc"
-            probe "v6 jobdetails"  "$B/pc/v6/jobdetails/$enc"
+            for v in v6 v5 v4 v3 v2; do
+              echo "===== $v jobdetails"
+              curl -sS --max-time 30 -o detail.json -w 'HTTP %{http_code}\n' \
+                -H "X-API-Key: jobboerse-jobsuche" -H "Accept: application/json" \
+                "$B/pc/$v/jobdetails/$enc" || true
+              jq -r 'if type=="object" then "keys: \(keys|join(", "))\nbeschreibung chars: \((.stellenangebotsBeschreibung // .stellenbeschreibung // "")|length)" else . end' detail.json 2>/dev/null | head -5 || head -c 300 detail.json
+              echo
+            done
           fi
