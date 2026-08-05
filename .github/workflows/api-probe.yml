@@ -1,0 +1,50 @@
+name: API probe
+
+# Diagnostic: exercises the Arbeitsagentur jobsuche API with the exact
+# parameter combinations the desktop app uses, so a "search answers but
+# returns zero listings" report can be reproduced outside the app.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "claude/arbeitsagentur-scraper-connection-92vgvx"
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe search endpoint variants
+        shell: bash
+        run: |
+          probe() {
+            local label="$1"; shift
+            local url="$1"; shift
+            echo "===== $label"
+            echo "URL: $url"
+            body=$(curl -sS --max-time 30 \
+              -H "X-API-Key: jobboerse-jobsuche" \
+              -H "Accept: application/json" \
+              -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36" \
+              -w '\n%{http_code}' "$url") || { echo "curl failed"; return; }
+            code=$(tail -1 <<<"$body")
+            json=$(sed '$d' <<<"$body")
+            echo "HTTP $code"
+            jq -r '"keys: \(keys | join(", "))\nmaxErgebnisse: \(.maxErgebnisse // "n/a")\nstellenangebote: \((.stellenangebote // []) | length)\nfirst titel: \(.stellenangebote[0].titel // .stellenangebote[0].beruf // "n/a")"' <<<"$json" 2>/dev/null \
+              || { echo "not JSON, first 400 chars:"; head -c 400 <<<"$json"; echo; }
+            echo
+          }
+
+          B="https://rest.arbeitsagentur.de/jobboerse/jobsuche-service"
+          BF="berufsfeld=Biologie"
+
+          probe "v6 berufsfeld size=1  (probe path)"      "$B/pc/v6/jobs?page=1&size=1&$BF"
+          probe "v6 berufsfeld size=100 (scrape path)"    "$B/pc/v6/jobs?page=1&size=100&$BF"
+          probe "v6 berufsfeld size=50"                   "$B/pc/v6/jobs?page=1&size=50&$BF"
+          probe "v6 berufsfeld size=25"                   "$B/pc/v6/jobs?page=1&size=25&$BF"
+          probe "v6 berufsfeld size=100 page=0"           "$B/pc/v6/jobs?page=0&size=100&$BF"
+          probe "v6 was=Biologie size=100 (fallback)"     "$B/pc/v6/jobs?page=1&size=100&was=Biologie"
+          probe "v6 unfiltered size=100"                  "$B/pc/v6/jobs?page=1&size=100"
+          probe "v6 berufsfeld+wo size=100"               "$B/pc/v6/jobs?page=1&size=100&$BF&wo=M%C3%BCnchen&umkreis=25"
+          probe "v4/app berufsfeld size=100"              "$B/pc/v4/app/jobs?page=1&size=100&$BF"
