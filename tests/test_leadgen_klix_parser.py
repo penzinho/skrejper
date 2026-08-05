@@ -123,6 +123,8 @@ class AdDetailParserTest(unittest.TestCase):
 
 @unittest.skipUnless(FIXTURES.exists(), "nema živih fixtureova — vidi scripts/leadgen.py fetch-fixtures")
 class RealFixtureTest(unittest.TestCase):
+    """Saved live pages (2026-08-05). Values asserted are frozen in the files."""
+
     def _read(self, name):
         path = FIXTURES / name
         if not path.exists():
@@ -132,21 +134,61 @@ class RealFixtureTest(unittest.TestCase):
     def test_employer_listing_has_links(self):
         html = self._read("poslodavci-list.html")
         entries = klix.parse_entity_links(html, klix.EMPLOYER_URL_RE)
-        self.assertGreater(len(entries), 0)
+        self.assertGreater(len(entries), 10)
         for entry in entries:
             self.assertTrue(entry["id"].isdigit())
 
-    def test_ad_listing_has_links(self):
+    def test_ad_listing_cards(self):
         html = self._read("oglasi-list.html")
         cards = klix.parse_ad_cards(html)
-        self.assertGreater(len(cards), 0)
+        self.assertGreater(len(cards), 10)
+        with_employer = [c for c in cards if c["employer_id"]]
+        # The listing cards carry the employer link, so incremental runs can
+        # tie a posting to its employer without an ad-detail fetch.
+        self.assertGreater(len(with_employer), len(cards) // 2)
+        self.assertTrue(all(c["title"] for c in cards))
 
-    def test_employer_page_parses(self):
-        html = self._read("poslodavac-1.html")
+    def test_employer_without_ads(self):
         employer, postings = klix.parse_employer_page(
-            html, "https://posao.klix.ba/poslodavci/x/1"
+            self._read("poslodavac-1.html"),
+            "https://posao.klix.ba/poslodavci/dom-invest/3527",
         )
-        self.assertTrue(employer["name"])
+        self.assertEqual(employer["name"], "Dom Invest")
+        self.assertEqual(employer["legal_name"], "Dom Invest d.o.o. Žepče")
+        self.assertEqual(employer["tax_id"], "4218266690002")
+        self.assertEqual(employer["vat_id"], "218266690002")
+        self.assertEqual(employer["city"], "Žepče")
+        self.assertEqual(employer["website"], "https://dominvest.ba/")
+        self.assertEqual(postings, [])
+
+    def test_employer_with_history(self):
+        employer, postings = klix.parse_employer_page(
+            self._read("poslodavac-2.html"),
+            "https://posao.klix.ba/poslodavci/hering/2903",
+        )
+        self.assertEqual(employer["name"], "Hering")
+        self.assertTrue(employer["tax_id"])
+        # 1 aktivan + 3 istekla na dan snimanja.
+        self.assertEqual(len(postings), 4)
+        expired = [p for p in postings if p["expires_at"]]
+        self.assertTrue(expired)
+        for posting in postings:
+            self.assertEqual(posting["employer_source_id"], "2903")
+            self.assertTrue(posting["title"])
+
+    def test_ad_detail(self):
+        posting = klix.parse_ad_page(
+            self._read("oglas-1.html"),
+            "https://posao.klix.ba/oglasi/elektricar-mz-hering/10217",
+        )
+        self.assertEqual(posting["source_id"], "10217")
+        self.assertIn("Električar", posting["title"])
+        self.assertEqual(posting["employer_source_id"], "2903")
+        self.assertEqual(posting["city"], "Široki Brijeg")
+        self.assertEqual(posting["published_at"], "2026-08-05")
+        self.assertEqual(posting["expires_at"], "2026-09-04")
+        self.assertEqual(posting["workers_count"], "1")
+        self.assertIn("Elektrotehnika", posting["category"])
 
 
 if __name__ == "__main__":

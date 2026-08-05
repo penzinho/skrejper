@@ -50,17 +50,22 @@ def links_matching(root, pattern: re.Pattern, base_url: str = "") -> list[tuple[
     return out
 
 
-def container_of(anchor, max_hops: int = 6):
-    """The nearest list-item-like ancestor — the "card" around a link."""
+def container_of(anchor, max_hops: int = 10):
+    """The nearest "card" ancestor around a link: a list item, a table row, or
+    a div whose class says it is a card (Tailwind sites have no li/tr)."""
     node = anchor
     fallback = anchor
-    for _ in range(max_hops):
+    for hop in range(max_hops):
         node = node.parent
         if node is None:
             break
         if node.name in _CONTAINER_TAGS:
             return node
-        fallback = node
+        classes = " ".join(node.get("class") or ())
+        if "card" in classes:
+            return node
+        if hop < 6:
+            fallback = node
     return fallback
 
 
@@ -80,7 +85,7 @@ def labeled_value(root, labels: tuple[str, ...]) -> str:
                 return target
         return None
 
-    for dt in root.find_all(["dt", "th"]):
+    for dt in root.find_all(["dt", "th", "h3", "h4"]):
         if is_label(dt.get_text()) is not None:
             value_el = dt.find_next_sibling(["dd", "td"])
             if value_el is not None:
@@ -125,13 +130,17 @@ def labeled_value(root, labels: tuple[str, ...]) -> str:
 
 
 def labeled_link(root, labels: tuple[str, ...], base_url: str = "") -> str:
-    """Like ``labeled_value`` but resolves to an href (for "Web:" fields)."""
+    """Like ``labeled_value`` but resolves to an href (for "Web:" fields).
+
+    Matches only "Label:" or the exact label — a bare prefix would let the
+    label "web" swallow an ad titled "Web novinar".
+    """
     wanted = tuple(norm_text(label) for label in labels)
     for element in root.find_all(["li", "p", "div", "dd", "td", "span"]):
         own = norm_text(element.get_text(" "))
         if not own or len(own) > 200:
             continue
-        if any(own.startswith(target) for target in wanted):
+        if any(own == target or own.startswith(target + ":") for target in wanted):
             anchor = element.find("a", href=True)
             if anchor and anchor["href"].startswith(("http://", "https://")):
                 return urljoin(base_url or "", anchor["href"])

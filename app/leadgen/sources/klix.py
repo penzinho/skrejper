@@ -37,6 +37,15 @@ DEFAULT_ENABLED = True
 BASE = "https://posao.klix.ba"
 EMPLOYER_URL_RE = re.compile(r"/poslodavci/([^/?#]+)/(\d+)(?:[/?#]|$)")
 AD_URL_RE = re.compile(r"/oglasi/([^/?#]+)/(\d+)(?:[/?#]|$)")
+CITY_URL_RE = re.compile(r"/grad/([^/?#]+)")
+
+# Hosts that are never the employer's own website (the site itself, its CDN,
+# social profiles).
+_NON_WEBSITE_HOSTS = (
+    "klix.ba", "facebook.com", "instagram.com", "linkedin.com", "twitter.com",
+    "x.com", "youtube.com", "tiktok.com", "google.com", "goo.gl", "wa.me",
+    "whatsapp.com", "viber.com",
+)
 
 # How fresh a listing page must be (seconds); employer pages refresh slower.
 LISTING_MAX_AGE_S = 30 * 60
@@ -85,6 +94,41 @@ def _classify_dates(text: str) -> tuple[str, str]:
     return dates[0], (dates[-1] if len(dates) >= 2 else "")
 
 
+def _icon_values(root, icon_class_fragment: str) -> list[str]:
+    """Texts next to a FontAwesome icon — how this site marks the address, the
+    city and the website in the company-info sidebar (no text labels there).
+    History cards carry the same icons, so parents containing an ad or city
+    link are skipped."""
+    values = []
+    for icon in root.find_all("i"):
+        classes = " ".join(icon.get("class") or ())
+        if icon_class_fragment not in classes:
+            continue
+        parent = icon.parent
+        if parent is None or parent.find("a", href=AD_URL_RE) or parent.find("a", href=CITY_URL_RE):
+            continue
+        value = clean_text(parent.get_text(" "))
+        # "Poslovni XP" is the site's gamification badge, drawn with the same
+        # map-marker icon as the city.
+        if value and len(value) <= 60 and norm_text(value) != "poslovni xp":
+            values.append(value)
+    return values
+
+
+def _icon_link(root, icon_class_fragment: str) -> str:
+    """An outbound link next to a FontAwesome icon (the globe = website)."""
+    for icon in root.find_all("i"):
+        classes = " ".join(icon.get("class") or ())
+        if icon_class_fragment not in classes:
+            continue
+        parent = icon.parent
+        anchor = parent.find("a", href=True) if parent is not None else None
+        if anchor and anchor["href"].startswith(("http://", "https://")):
+            return anchor["href"]
+    return ""
+
+
+
 def parse_employer_page(html: str, url: str) -> tuple[dict, list[dict]]:
     """One employer page -> (employer record, its full posting history)."""
     root = hp.soup(html)
@@ -93,11 +137,24 @@ def parse_employer_page(html: str, url: str) -> tuple[dict, list[dict]]:
 
     name = hp.page_title(root)
     legal_name = hp.labeled_value(root, ("puni naziv", "pravni naziv", "naziv firme", "naziv pravnog lica"))
-    tax_id = hp.labeled_value(root, ("jib", "id broj", "identifikacijski broj", "identifikacioni broj"))
-    vat_id = hp.labeled_value(root, ("pdv broj", "pdv"))
+    # The JIB is labelled just "ID:" on the live site; the older aliases stay
+    # as fallbacks.
+    tax_id = hp.labeled_value(root, ("id", "jib", "id broj", "identifikacijski broj", "identifikacioni broj"))
+    vat_id = hp.labeled_value(root, ("pdv", "pdv broj"))
+    # The sidebar marks the street and the city with the same map-marker icon,
+    # in that order; the street is the entry carrying a house number / "bb".
     address = hp.labeled_value(root, ("adresa", "sjedište", "sjediste", "ulica"))
     city = hp.labeled_value(root, ("grad", "mjesto", "opština", "opcina"))
-    website = hp.labeled_link(root, ("web", "web stranica", "website", "webstranica"), url)
+    marker_values = _icon_values(root, "map-marker")
+    looks_like_street = lambda v: bool(re.search(r"\d|(?<![a-z])bb(?![a-z])|b\.b", v, re.IGNORECASE))
+    if not address:
+        address = next((v for v in marker_values if looks_like_street(v)), "")
+    if not city:
+        city = next((v for v in marker_values if not looks_like_street(v)), "")
+    website = (
+        _icon_link(root, "globe")
+        or hp.labeled_link(root, ("web", "web stranica", "website", "webstranica"), url)
+    )
     if not city and address and "," in address:
         city = re.sub(r"\b\d{5}\b", "", address.rsplit(",", 1)[1]).strip()
 
@@ -118,19 +175,24 @@ def parse_employer_page(html: str, url: str) -> tuple[dict, list[dict]]:
     )
 
     postings = []
+    seen_ids: set[str] = set()
     for match, ad_url, anchor in hp.links_matching(root, AD_URL_RE, url):
+        # Each card links the ad twice (title + logo); keep the titled one.
+        title = clean_text(anchor.get_text(" "))
+        if not title or match.group(2) in seen_ids:
+            continue
+        seen_ids.add(match.group(2))
         card = hp.container_of(anchor)
         published, expires = _classify_dates(card.get_text(" "))
-        title = clean_text(anchor.get_text(" "))
-        if not title:
-            continue
+        city_link = card.find("a", href=CITY_URL_RE)
+        ad_city = clean_text(city_link.get_text(" ")) if city_link else city
         postings.append(make_posting(
             source=SOURCE,
             source_id=match.group(2),
             employer_source=SOURCE,
             employer_source_id=employer_id,
             title=title,
-            city=city,
+            city="" if ad_city.casefold().startswith("više lokacija") else ad_city,
             published_at=published,
             expires_at=expires,
             detail_url=ad_url,
@@ -168,16 +230,22 @@ def parse_ad_page(html: str, url: str) -> dict:
     employer_link = next(iter(hp.links_matching(root, EMPLOYER_URL_RE, url)), None)
     text = root.get_text(" ")
 
+    # The city as a /grad/ link (page header) beats the "Mjesto rada:" label —
+    # the ad body often repeats that label with a looser value ("Hercegovina").
+    city_link = root.find("a", href=CITY_URL_RE)
+    city = clean_text(city_link.get_text(" ")) if city_link else ""
+
     posting = make_posting(
         source=SOURCE,
         source_id=match.group(2) if match else "",
         employer_source=SOURCE,
         employer_source_id=employer_link[0].group(2) if employer_link else "",
         title=hp.page_title(root),
-        city=hp.labeled_value(root, ("mjesto rada", "lokacija", "grad", "mjesto")),
-        published_at=parse_date(hp.labeled_value(root, ("objavljen", "datum objave"))),
+        city=city or hp.labeled_value(root, ("mjesto rada", "lokacija", "grad", "mjesto")),
+        published_at=parse_date(hp.labeled_value(root, ("objavljeno", "objavljen", "datum objave"))),
         expires_at=parse_date(hp.labeled_value(root, ("ističe", "istice", "vrijedi do", "datum isteka", "rok za prijavu"))),
         workers_count=hp.labeled_value(root, ("broj izvršilaca", "broj izvrsilaca", "broj radnika", "broj pozicija")),
+        category=hp.labeled_value(root, ("kategorije", "kategorija")),
         description=clean_text(text)[:3000],
         contact_email=extract_email(html),
         contact_phone=extract_phone(hp.labeled_value(root, ("telefon", "kontakt telefon", "kontakt"))),
