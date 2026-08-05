@@ -22,6 +22,17 @@ na tvom računalu.
 Skini zip za svoju platformu iz [Releases](../../releases) ili iz artifacta zadnjeg
 *Desktop build* workflowa, raspakiraj i pokreni.
 
+- **macOS** — prevuci `Skrejper.app` u Applications. To je cijela instalacija.
+- **Windows** — aplikacija je **portable**, nema instalera. Raspakiraj mapu negdje gdje
+  ostaje (npr. `C:\Users\<ime>\Apps\Skrejper`) i napravi prečac: desni klik na
+  `Skrejper.exe` → *Show more options* → *Send to* → *Desktop (create shortcut)*.
+
+  Nema `.msi` namjerno: sve što aplikacija pamti — stanje „već skrejpano" i preuzeti
+  Chromium — živi u `%LOCALAPPDATA%\Skrejper`, izvan mape aplikacije. Update je zato
+  samo brisanje stare mape i raspakiravanje nove; ništa se ne gubi. Isto tako, build je
+  `onedir`, a ne `onefile`, jer bi Playwright inače pri svakom pokretanju iznova
+  raspakiravao svoj Node driver i aplikacija bi se otvarala osjetno sporije.
+
 **Buildovi nisu potpisani**, pa ih OS prvi put blokira:
 
 - **macOS** — desni klik na `Skrejper.app` → *Open* → *Open*. Ako se i dalje buni:
