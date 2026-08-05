@@ -2,17 +2,26 @@ name: Desktop build
 
 on:
   workflow_dispatch:
+  # No `paths` filter. Naming `tags` in the same push block makes branch pushes
+  # stop matching, and path filters behave differently for tags than for
+  # branches — the combination meant this workflow never ran at all. A full
+  # build is ~5 minutes, which is not worth that fragility.
   push:
-    tags: ["v*"]
-    paths:
-      - "app/**"
-      - "packaging/**"
-      - "skrejper_gui.py"
-      - "requirements-desktop.txt"
-      - ".github/workflows/desktop-build.yml"
+    branches:
+      - main
+      - openclaw
+      - "claude/**"
+    tags:
+      - "v*"
 
 permissions:
   contents: write
+
+# A second push while three platform builds are still running just burns
+# minutes on a result nobody will download.
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
