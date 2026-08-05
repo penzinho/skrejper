@@ -1,13 +1,11 @@
 name: API probe
 
-# Diagnostic: exercises the Arbeitsagentur jobsuche API with the exact
-# parameter combinations the desktop app uses, so a "search answers but
-# returns zero listings" report can be reproduced outside the app.
+# Diagnostic, run by hand from the Actions tab: exercises the Arbeitsagentur
+# jobsuche API with the exact requests the desktop app makes, so a "search
+# answers but returns zero listings" report can be reproduced outside the app.
+# That is how the v6 `stellenangebote` -> `ergebnisliste` rename was found.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "claude/arbeitsagentur-scraper-connection-92vgvx"
 
 permissions: {}
 

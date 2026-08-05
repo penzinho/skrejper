@@ -5,8 +5,14 @@ Unlike the HZZ and Meinestadt scrapers, this one does **not** drive a browser.
 The public `jobsuche` frontend (the "infinite scroll" list) is powered by a
 documented REST API, so we talk to that directly:
 
-* search   -> `GET .../pc/v4/jobs?berufsfeld=...&page=..&size=..`
-* detail   -> `GET .../pc/v3/jobdetails/{base64(refnr)}`
+* search   -> `GET .../pc/v6/jobs?berufsfeld=...&page=..&size=..`
+* detail   -> `GET .../pc/v4/jobdetails/{base64(refnr)}`
+
+The API renames things between versions: v6 keeps `maxErgebnisse` but moved the
+result list from `stellenangebote` to `ergebnisliste` and renamed the listing
+fields (`refnr` -> `referenznummer`, `titel` -> `stellenangebotsTitel`,
+`arbeitgeber` -> `firma`, `arbeitsort` -> `stellenlokationen[].adresse`). Both
+shapes are read, so whichever version answers, the export is not empty.
 
 The search response carries the employer name + location for every listing; the
 detail response carries the free-text job description, which is where employer
@@ -524,6 +530,37 @@ def _resolve_berufsfelder(category: str | None) -> tuple[list[str], str]:
     return [candidate], candidate
 
 
+def _listings(payload: dict | None) -> list[dict]:
+    """The result list, wherever this API version keeps it.
+
+    v4 called it `stellenangebote`; v6 renamed it to `ergebnisliste` while
+    keeping `maxErgebnisse` — so a probe that only reads the total says
+    "924 oglasa" while a scraper reading the old key exports nothing.
+    """
+    if not payload:
+        return []
+    return payload.get("stellenangebote") or payload.get("ergebnisliste") or []
+
+
+def _listing_refnr(listing: dict) -> str:
+    # v4: refnr; v6: referenznummer. Same value, and the v4 detail endpoint
+    # accepts it base64-encoded either way.
+    return (listing.get("refnr") or listing.get("referenznummer") or "").strip()
+
+
+def _listing_location(listing: dict) -> str:
+    # v4: arbeitsort {ort, region}; v6: stellenlokationen [{adresse: {ort, region}}].
+    arbeitsort = listing.get("arbeitsort") or {}
+    ort = (arbeitsort.get("ort") or "").strip()
+    region = (arbeitsort.get("region") or "").strip()
+    if ort or region:
+        return ort or region
+
+    lokationen = listing.get("stellenlokationen") or []
+    adresse = (lokationen[0].get("adresse") or {}) if lokationen else {}
+    return (adresse.get("ort") or "").strip() or (adresse.get("region") or "").strip()
+
+
 def _is_valid_email_candidate(value: str) -> bool:
     if not value or value.count("@") != 1:
         return False
@@ -679,14 +716,11 @@ def _build_search_url(
 
 
 def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> dict | None:
-    refnr = (listing.get("refnr") or "").strip()
+    refnr = _listing_refnr(listing)
     if not refnr:
         return None
 
-    arbeitsort = listing.get("arbeitsort") or {}
-    ort = (arbeitsort.get("ort") or "").strip()
-    region = (arbeitsort.get("region") or "").strip()
-    location = ort or region
+    location = _listing_location(listing)
 
     enc = base64.b64encode(refnr.encode("utf-8")).decode("ascii")
     detail = _detail_json(enc, timeout=detail_timeout)
@@ -695,6 +729,7 @@ def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> 
     company = (
         (detail.get("firma") if detail else "")
         or listing.get("arbeitgeber")
+        or listing.get("firma")
         or ""
     ).strip()
 
@@ -702,10 +737,20 @@ def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> 
     website = _clean_website(listing.get("externeUrl") or "")
 
     return {
-        "title": (listing.get("titel") or listing.get("beruf") or "").strip(),
+        "title": (
+            listing.get("titel")
+            or listing.get("stellenangebotsTitel")
+            or listing.get("beruf")
+            or listing.get("hauptberuf")
+            or ""
+        ).strip(),
         "company": company,
         "location": location,
-        "published_at": (listing.get("aktuelleVeroeffentlichungsdatum") or "").strip(),
+        "published_at": (
+            listing.get("aktuelleVeroeffentlichungsdatum")
+            or listing.get("datumErsteVeroeffentlichung")
+            or ""
+        ).strip(),
         "detail_url": PUBLIC_DETAIL_URL.format(refnr=urllib.parse.quote(refnr)),
         "category": category_label,
         "email": email,
@@ -781,7 +826,7 @@ def scrape_arbeitsagentur(
 
             if total_results is None:
                 total_results = payload.get("maxErgebnisse")
-            listings = payload.get("stellenangebote") or []
+            listings = _listings(payload)
 
             # The board renames its Berufsfeld values without notice, and a
             # renamed one filters every posting out while still answering 200.
@@ -800,7 +845,7 @@ def scrape_arbeitsagentur(
                 if payload is None:
                     break
                 total_results = payload.get("maxErgebnisse")
-                listings = payload.get("stellenangebote") or []
+                listings = _listings(payload)
 
             if debug_progress:
                 _log(
@@ -813,7 +858,7 @@ def scrape_arbeitsagentur(
                 break
 
             for listing in listings:
-                refnr = (listing.get("refnr") or "").strip()
+                refnr = _listing_refnr(listing)
                 if not refnr or refnr in seen_refnrs:
                     continue
                 seen_refnrs.add(refnr)

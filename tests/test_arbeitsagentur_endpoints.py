@@ -268,6 +268,52 @@ class BerufsfeldFallbackTests(EndpointTestCase):
         self.assertTrue(all(call["keyword"] is None for call in calls), calls)
 
 
+class V6ResponseShapeTests(EndpointTestCase):
+    """v6 kept `maxErgebnisse` but renamed the result list to `ergebnisliste`
+    and every listing field with it — which made the probe say "924 oglasa"
+    while the scraper exported zero rows."""
+
+    V6_LISTING = {
+        "referenznummer": "10001-1003492538-S",
+        "stellenangebotsTitel": "Technischer Assistent (m/w/d)",
+        "firma": "CeGaT GmbH",
+        "hauptberuf": "Biologisch-technische/r Assistent/in",
+        "stellenlokationen": [
+            {"adresse": {"ort": "Tübingen", "region": "BADEN_WUERTTEMBERG"}}
+        ],
+        "datumErsteVeroeffentlichung": "2026-08-05",
+    }
+
+    def test_the_ergebnisliste_key_is_read(self):
+        payload = {"ergebnisliste": [self.V6_LISTING], "maxErgebnisse": 924}
+        self.assertEqual(aa._listings(payload), [self.V6_LISTING])
+        self.assertEqual(aa._listings({"stellenangebote": [self.V6_LISTING]}), [self.V6_LISTING])
+        self.assertEqual(aa._listings(None), [])
+
+    def test_a_scrape_against_a_v6_search_response_produces_rows(self):
+        live = {
+            "/pc/v6/jobs": {"ergebnisliste": [self.V6_LISTING], "maxErgebnisse": 1},
+            "/pc/v4/jobdetails": DETAIL_PAYLOAD,
+        }
+        with mock.patch.object(aa.urllib.request, "urlopen", router(live, [])):
+            jobs = aa.scrape_arbeitsagentur(category="Biologie", max_pages=1)
+
+        self.assertEqual(len(jobs), 1)
+        job = jobs[0]
+        self.assertEqual(job["refnr"], "10001-1003492538-S")
+        self.assertEqual(job["title"], "Technischer Assistent (m/w/d)")
+        self.assertEqual(job["location"], "Tübingen")
+        self.assertEqual(job["published_at"], "2026-08-05")
+        self.assertEqual(job["email"], "info@muster.de")
+        # No fallback chatter: the Berufsfeld search matched.
+        self.assertFalse(any("ponavljam kao was=" in line for line in self.logs), self.logs)
+
+    def test_a_v6_listing_without_arbeitsort_still_gets_a_location(self):
+        self.assertEqual(aa._listing_location(self.V6_LISTING), "Tübingen")
+        self.assertEqual(aa._listing_location({"arbeitsort": {"ort": "Berlin"}}), "Berlin")
+        self.assertEqual(aa._listing_location({"stellenlokationen": []}), "")
+
+
 class ScrapeIntegrationTests(EndpointTestCase):
     def test_a_whole_scrape_works_against_the_surviving_endpoints(self):
         listing = {

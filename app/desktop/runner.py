@@ -348,8 +348,22 @@ def _probe(config: dict, events: _EventWriter) -> int:
     if berufsfeld:
         field_payload = arbeitsagentur._search_json(berufsfeld, None, None, None, 1, 1, timeout)
         field_total = (field_payload or {}).get("maxErgebnisse")
-        _emit_line = f"[arbeitsagentur] berufsfeld={berufsfeld!r} -> {field_total} oglasa"
-        events.emit("log", line=_emit_line)
+        listed = len(arbeitsagentur._listings(field_payload))
+        events.emit(
+            "log", line=f"[arbeitsagentur] berufsfeld={berufsfeld!r} -> {field_total} oglasa"
+        )
+        # The failure this probe exists to catch: the total says the search
+        # matched, but the response carries no listings the scraper can read —
+        # the API renamed its result list (stellenangebote -> ergebnisliste).
+        if field_total and not listed:
+            events.emit(
+                "log",
+                line=(
+                    "[arbeitsagentur] UPOZORENJE: pretraga javlja "
+                    f"{field_total} oglasa, ali u odgovoru nema liste koju "
+                    "skrejper zna pročitati — API je promijenio format."
+                ),
+            )
 
     names = _facet_names(payload)
     if names:
