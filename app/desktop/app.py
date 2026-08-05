@@ -23,6 +23,40 @@ from app.desktop.tabs.hzz_tab import HzzTab
 
 ICON_PATH = paths.resource_dir() / "icon.png"
 RAIL_WIDTH = 208
+# Reverse-domain id, same as the macOS bundle identifier.
+APP_USER_MODEL_ID = "hr.protalent.skrejper"
+
+
+def claim_windows_app_identity() -> None:
+    """Give Windows an explicit AppUserModelID before Qt starts.
+
+    The taskbar groups buttons by this id, and a frozen Python app that does not
+    set one inherits the launching process's identity — which is why the taskbar
+    shows a blank default icon even though the .exe has an icon embedded and the
+    window icon is set. Must run before the QApplication exists.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except (AttributeError, OSError):
+        pass  # Older Windows, or shell32 unavailable — only costs us the icon.
+
+
+def app_icon() -> QIcon | None:
+    """The .ico on Windows (it carries every size the shell asks for), else the PNG.
+
+    icon.ico is generated at build time by packaging/make_icons.py, so running
+    from source falls back to the PNG.
+    """
+    names = ("icon.ico", "icon.png") if sys.platform == "win32" else ("icon.png",)
+    for name in names:
+        candidate = paths.resource_dir() / name
+        if candidate.exists():
+            return QIcon(str(candidate))
+    return None
 
 
 class MainWindow(QMainWindow):
@@ -194,12 +228,18 @@ def build_application(argv: list[str] | None = None):
     QApplication.setOrganizationName(ORG_NAME)
     QApplication.setApplicationDisplayName(APP_NAME)
 
+    claim_windows_app_identity()
     app = QApplication.instance() or QApplication(argv if argv is not None else sys.argv)
-    if ICON_PATH.exists():
-        app.setWindowIcon(QIcon(str(ICON_PATH)))
+    icon = app_icon()
+    if icon is not None:
+        app.setWindowIcon(icon)
     theme.apply(app)
 
     window = MainWindow()
+    if icon is not None:
+        # Also on the window: some shells read the window's icon rather than the
+        # application's when deciding what to draw.
+        window.setWindowIcon(icon)
     return app, window
 
 

@@ -76,7 +76,13 @@ jobs:
       - name: Build platform icons
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python packaging/make_icons.py --platform
+        # Fails loudly if the platform icon is missing. make_icons only warns on
+        # stderr when Pillow or the macOS tooling is absent, and PyInstaller
+        # silently falls back to its default icon — the two together would ship
+        # an iconless build that still passes every other check.
+        run: |
+          python packaging/make_icons.py --platform
+          python -c "import sys; from pathlib import Path; name = 'icon.icns' if sys.platform == 'darwin' else 'icon.ico'; p = Path('app/desktop/resources') / name; sys.exit(f'missing {p}') if not p.exists() else print(f'{p} ok ({p.stat().st_size} bytes)')"
 
       - name: Build app
         run: pyinstaller packaging/skrejper.spec --noconfirm
