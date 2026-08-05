@@ -170,6 +170,21 @@ class MainWindow(QMainWindow):
         )
         file_menu.addAction(open_state)
 
+        # The raw seen-*.txt files, one action per store: plain text, one
+        # posting id (or e-mail) per line, openable in whatever edits .txt.
+        seen_menu = file_menu.addMenu("Popis viđenih")
+        for label, source in (
+            ("HZZ — oglasi", "hzz"),
+            ("HZZ — e-mailovi", "hzz-emails"),
+            ("Arbeitsagentur — oglasi", "arbeitsagentur"),
+            ("Arbeitsagentur — e-mailovi", "arbeitsagentur-emails"),
+        ):
+            action = QAction(label, self)
+            action.triggered.connect(
+                lambda _checked=False, s=source, l=label: self._open_seen(s, l)
+            )
+            seen_menu.addAction(action)
+
         file_menu.addSeparator()
         quit_action = QAction("Zatvori", self)
         quit_action.setMenuRole(QAction.QuitRole)
@@ -270,6 +285,19 @@ class MainWindow(QMainWindow):
 
         drive_sync.disconnect()
         self.statusBar().showMessage("[drive] Odspojeno — lokalni podaci ostaju.", 10000)
+
+    def _open_seen(self, source: str, label: str) -> None:
+        from app import seen_store
+
+        path = seen_store.state_dir() / f"seen-{source}.txt"
+        if not path.exists():
+            QMessageBox.information(
+                self, "Popis viđenih", f"Za „{label}” još nema zapisa."
+            )
+            return
+        count = len(seen_store.load_seen(source))
+        self.statusBar().showMessage(f"{label}: {count} zapisa — {path}", 10000)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def _open_output(self) -> None:
         current = self.pages.currentWidget()
