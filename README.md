@@ -33,6 +33,29 @@ Skini zip za svoju platformu iz [Releases](../../releases) ili iz artifacta zadn
   `onedir`, a ne `onefile`, jer bi Playwright inače pri svakom pokretanju iznova
   raspakiravao svoj Node driver i aplikacija bi se otvarala osjetno sporije.
 
+### Windows Defender javi „Trojan:Script/Wacatac.B!ml"
+
+Lažna uzbuna, i česta za PyInstaller aplikacije. Sufiks **`!ml`** znači da je detekcija iz
+strojnog modela — heuristika, ne potpis stvarnog zloćudnog koda. Okidači su nepotpisan `.exe`
+bez reputacije (svaki novi build je „prvi put viđen") i to što zip nosi i Python i cijeli
+Node.js runtime koji Playwright treba, uz stotine `.js` datoteka.
+
+Dvije stvari koje najviše izazivaju ovakve detekcije već izbjegavamo: build je `onedir`
+(ne `onefile`) i bez UPX kompresije.
+
+Što napraviti:
+
+1. **Vrati datoteku** — Windows Security → *Protection history* → ta stavka → *Actions* →
+   *Allow on device*, pa ponovno raspakiraj.
+2. **Dodaj iznimku** za mapu u koju raspakiraš (`Virus & threat protection` → *Manage settings*
+   → *Exclusions*). Dovoljna je ta jedna mapa — nemoj gasiti zaštitu.
+3. **Prijavi lažnu detekciju** Microsoftu na
+   [microsoft.com/wdsi/filesubmission](https://www.microsoft.com/en-us/wdsi/filesubmission).
+   Besplatno je, obično se riješi u dan-dva, i popravi za sve koji skinu isti build.
+
+Trajno rješenje je **potpisivanje koda** (OV/EV certifikat, reda 200–400 €/god). Dok build nije
+potpisan, ovo se može ponoviti nakon svake nove verzije jer svaki build kreće bez reputacije.
+
 **Buildovi nisu potpisani**, pa ih OS prvi put blokira:
 
 - **macOS** — desni klik na `Skrejper.app` → *Open* → *Open*. Ako se i dalje buni:
