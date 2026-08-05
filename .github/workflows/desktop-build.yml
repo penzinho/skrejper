@@ -101,7 +101,13 @@ jobs:
         if: runner.os == 'Windows'
         env:
           QT_QPA_PLATFORM: offscreen
-        run: ./dist/Skrejper/Skrejper.exe --self-test
+        # The exe is a GUI-subsystem binary (console=False), so invoking it
+        # directly detaches: PowerShell reports success no matter what the app
+        # does, and a broken bundle sails through. Start-Process -Wait is what
+        # actually surfaces the exit code.
+        run: |
+          $p = Start-Process -FilePath dist\Skrejper\Skrejper.exe -ArgumentList '--self-test' -Wait -PassThru
+          exit $p.ExitCode
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
