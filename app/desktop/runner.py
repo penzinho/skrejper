@@ -401,6 +401,20 @@ def _probe(config: dict, events: _EventWriter) -> int:
 
 
 def run(config: dict, events: _EventWriter) -> int:
+    if config.get("source") == "leadgen":
+        # The BiH/RS lead pipeline has its own worker (database, no CSV-per-
+        # category); it speaks the same event protocol.
+        from app.desktop import leadgen_runner
+
+        try:
+            return leadgen_runner.run(config, events)
+        except KeyboardInterrupt:
+            events.emit("cancelled", files=[], rows=0)
+            return 130
+        except Exception as exc:
+            events.emit("error", message=f"{type(exc).__name__}: {exc}", traceback=traceback.format_exc())
+            return 1
+
     if config.get("mode") == "probe":
         try:
             return _probe(config, events)

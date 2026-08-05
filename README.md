@@ -1,11 +1,12 @@
 # Skrejper
 
-Skrejpanje oglasa za posao i izvlačenje kontakata poslodavaca s dva izvora:
+Skrejpanje oglasa za posao i izvlačenje kontakata poslodavaca:
 
 | Izvor | Što je | Treba li preglednik |
 |---|---|---|
 | **HZZ** — `burzarada.hzz.hr` | hrvatski oglasi, 20 kategorija s podkategorijama | da (Chromium) |
 | **Arbeitsagentur** — `rest.arbeitsagentur.de` | njemački javni Jobsuche API, 15 grupa Berufsfelder | ne, čisti HTTP |
+| **Leadovi BiH/RS** — `posao.klix.ba` (+ novi izvori u dolasku) | employer-centrični lead gen s bodovanjem po povijesti oglasa | ne, čisti HTTP |
 
 Postoje dva načina korištenja: **desktop aplikacija** (za svakodnevni rad) i **skripte / agent**
 (za server i cron).
@@ -168,6 +169,49 @@ Napomena: service account ovdje namjerno ne koristimo — od Googleove promjene
 
 ---
 
+## Leadovi BiH / Srbija (`app/leadgen`)
+
+Za razliku od HZZ/Arbeitsagentur toka (oglas → e-mail → CSV, bez stanja), ovaj
+pipeline je **employer-centričan i trajan**: sve skrejpano ide u lokalnu SQLite
+bazu (`<state dir>/leadgen.db`), a lead lista se izvodi iz *povijesti* oglasa
+po firmi — firma s 24 oglasa za vozače u dvije godine vrijedi više od firme s
+jednim oglasom.
+
+Faze pipelinea (svaka se pokreće zasebno):
+
+```bash
+python scripts/leadgen.py scrape            # izvori → baza (inkrementalno)
+python scripts/leadgen.py score             # bodovanje: oglasi u 24 mj., ponavljanja pozicija…
+python scripts/leadgen.py dedupe            # ista firma preko izvora (JIB/PIB, pa fuzzy naziv+grad)
+python scripts/leadgen.py export --min-ads 2  # rangirani leadovi → CSV/XLSX
+python scripts/leadgen.py run               # sve četiri faze zaredom (za cron)
+python scripts/leadgen.py import-csv output/*.csv   # postojeći HZZ/AA CSV-ovi u istu bazu
+python scripts/leadgen.py stats
+```
+
+U desktop aplikaciji isto radi stranica **Leadovi BiH/RS** u lijevom meniju;
+baza se između računala sinkronizira kroz postojeći Google Drive sync (kao
+NDJSON dump po računalu, spajanje je unija — binarni .db file se ne šalje).
+
+Trenutni izvori: **Klix Posao** (direktorij poslodavaca daje JIB, adresu, web
+i kompletnu povijest oglasa — temelj bodovanja). Sljedeće faze: MojPosao.ba,
+BoljiPosao.com, LakoDoPosla, Posao.rs, NSZ; iza defaultno isključenih flagova
+Infostud (uvjeti korištenja), FZZZ i direktni ZZZ RS.
+
+Pravila pristojnosti: pošten User-Agent s kontaktom (`SKREJPER_CONTACT`,
+zadano `app@protalent.hr`), pauza između zahtjeva po hostu (`LEADGEN_DELAY_S`,
+zadano 1.5 s), exponential backoff, i lokalni gzip cache HTML-a u
+`<state dir>/cache/` — razvoj i ponovno parsiranje ne udaraju u izvor.
+
+Testovi parsera rade na sintetičkim fixtureovima; za testove na stvarnim
+stranicama pokreni (s računala s normalnim internetom) i commitaj rezultat:
+
+```bash
+python scripts/leadgen.py fetch-fixtures    # → tests/fixtures/klix/
+```
+
+---
+
 ## Skripte i agent (server)
 
 Nepromijenjeno — desktop aplikacija ništa od ovoga ne dira.
@@ -199,6 +243,7 @@ curl -X POST localhost:8000/scrape/arbeitsagentur \
 
 ```
 app/scrapers/       hzz.py, arbeitsagentur.py, meinestadt.py   — sami skreperi
+app/leadgen/        BiH/RS lead gen: SQLite baza, bodovanje, dedup, izvori (sources/)
 app/seen_store.py   trajno „već skrejpano”, po izvoru
 app/desktop/        desktop aplikacija (PySide6)
   pipeline.py         dedupe + filtriranje, dijeli se sa skriptama

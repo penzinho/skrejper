@@ -254,12 +254,32 @@ def _draw_globe(path: Path, color: str, size: int = 20) -> Path:
     return path
 
 
+def _draw_people(path: Path, color: str, size: int = 20) -> Path:
+    """Nav icon for Leadovi — employers, not postings."""
+    image = _new_image(size)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    s = size * GLYPH_SCALE
+    painter.setPen(_pen(color, 1.4))
+    painter.setBrush(Qt.NoBrush)
+    # Front figure: head + shoulders.
+    painter.drawEllipse(QPointF(s * 0.40, s * 0.32), s * 0.13, s * 0.13)
+    painter.drawArc(int(s * 0.18), int(s * 0.52), int(s * 0.44), int(s * 0.40), 0, 180 * 16)
+    # Second figure behind, offset.
+    painter.drawEllipse(QPointF(s * 0.68, s * 0.28), s * 0.10, s * 0.10)
+    painter.drawArc(int(s * 0.54), int(s * 0.46), int(s * 0.34), int(s * 0.32), 0, 180 * 16)
+    painter.end()
+    image.save(str(path), "PNG")
+    return path
+
+
 def nav_icons(tokens: Tokens) -> dict[str, str]:
     """Icons for the navigation rail, drawn in the primary text colour."""
     directory = _glyph_dir(tokens)
     return {
         "hzz": str(_draw_document(directory / "nav-hzz.png", tokens.text)),
         "arbeitsagentur": str(_draw_globe(directory / "nav-arbeitsagentur.png", tokens.text)),
+        "leadgen": str(_draw_people(directory / "nav-leadgen.png", tokens.text)),
     }
 
 

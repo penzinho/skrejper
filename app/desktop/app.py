@@ -23,6 +23,7 @@ from app.desktop import paths, theme
 from app.desktop.paths import APP_NAME, ORG_NAME
 from app.desktop.tabs.arbeitsagentur_tab import ArbeitsagenturTab
 from app.desktop.tabs.hzz_tab import HzzTab
+from app.desktop.tabs.leadgen_tab import LeadgenTab
 
 ICON_PATH = paths.resource_dir() / "icon.png"
 RAIL_WIDTH = 208
@@ -74,10 +75,12 @@ class MainWindow(QMainWindow):
 
         self.hzz_tab = HzzTab()
         self.arbeitsagentur_tab = ArbeitsagenturTab()
+        self.leadgen_tab = LeadgenTab()
 
         self.pages = QStackedWidget()
         self.pages.addWidget(self.hzz_tab)
         self.pages.addWidget(self.arbeitsagentur_tab)
+        self.pages.addWidget(self.leadgen_tab)
 
         central = QWidget()
         layout = QHBoxLayout(central)
@@ -99,7 +102,7 @@ class MainWindow(QMainWindow):
         self.drive_status.connect(lambda line: self.statusBar().showMessage(line, 15000))
         # Pick up what other computers scraped before this one starts, and push
         # this computer's additions after every finished run.
-        for tab in (self.hzz_tab, self.arbeitsagentur_tab):
+        for tab in (self.hzz_tab, self.arbeitsagentur_tab, self.leadgen_tab):
             tab._process.finished.connect(self._drive_auto_sync)
         QTimer.singleShot(1500, self._drive_auto_sync)
 
@@ -138,7 +141,11 @@ class MainWindow(QMainWindow):
         self.nav.setObjectName("nav")
         self.nav.setIconSize(QSize(19, 19))
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        for label, key in (("HZZ", "hzz"), ("Arbeitsagentur", "arbeitsagentur")):
+        for label, key in (
+            ("HZZ", "hzz"),
+            ("Arbeitsagentur", "arbeitsagentur"),
+            ("Leadovi BiH/RS", "leadgen"),
+        ):
             item = QListWidgetItem(label)
             item.setIcon(QIcon(icons[key]))
             self.nav.addItem(item)
@@ -277,6 +284,14 @@ class MainWindow(QMainWindow):
                 drive_sync.sync(log=self.drive_status.emit)
             except Exception as exc:
                 self.drive_status.emit(f"[drive] Sinkronizacija nije uspjela: {exc}")
+            try:
+                # The leadgen database travels as per-machine NDJSON dumps and
+                # merges as a union — see app/leadgen/sync.py.
+                from app.leadgen import sync as leadgen_sync
+
+                leadgen_sync.sync(log=self.drive_status.emit)
+            except Exception as exc:
+                self.drive_status.emit(f"[drive] Sinkronizacija leadgen baze nije uspjela: {exc}")
 
         threading.Thread(target=run, daemon=True).start()
 
@@ -323,7 +338,11 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geometry)
 
     def _running_tabs(self) -> list:
-        return [tab for tab in (self.hzz_tab, self.arbeitsagentur_tab) if tab.running]
+        return [
+            tab
+            for tab in (self.hzz_tab, self.arbeitsagentur_tab, self.leadgen_tab)
+            if tab.running
+        ]
 
     def closeEvent(self, event) -> None:
         if self._running_tabs():
@@ -389,6 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         window.hzz_tab.build_config()
         window.arbeitsagentur_tab.categories.set_all(True)
         window.arbeitsagentur_tab.build_config()
+        window.leadgen_tab.build_config()
         print("self-test ok")
         return 0
 
