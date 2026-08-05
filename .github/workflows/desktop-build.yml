@@ -52,13 +52,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Apple Silicon only. An Intel build would need macos-15-intel (the
+          # macos-13 image was retired in December 2025) and nobody using this
+          # app is on an Intel Mac — the resulting .app will not run on one.
           - os: macos-14
             asset: Skrejper-macOS-arm64
-          # Not macos-13: that image was retired in December 2025, so the job
-          # never gets a runner and sits queued forever instead of failing.
-          # macos-15-intel is the last x86_64 image GitHub offers (until 2027).
-          - os: macos-15-intel
-            asset: Skrejper-macOS-intel
           - os: windows-latest
             asset: Skrejper-Windows-x64
     runs-on: ${{ matrix.os }}
