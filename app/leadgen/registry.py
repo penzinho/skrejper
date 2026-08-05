@@ -20,7 +20,8 @@ _SOURCE_MODULES = {
     "mojposao_ba": "app.leadgen.sources.mojposao_ba",
     "lakodoposla": "app.leadgen.sources.lakodoposla",
     "poslovi_rs": "app.leadgen.sources.poslovi_rs",
-    # Faza 2 (ostatak): "nsz"; "boljiposao" je prazan HTML shell — treba headless
+    "nsz": "app.leadgen.sources.nsz",
+    # "boljiposao" je prazan HTML shell — treba headless
     # Faza 3 (iza flaga): "infostud", "fzzz", "zzzrs"
 }
 

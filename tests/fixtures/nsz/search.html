@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="sr">
+    <head>
+        <title>
+                        Претрага огласа            -
+                        НСЗ
+        </title>
+        <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="6cxhVNpbyhrCeFrL4vpqb9NSn5jIEubSDNDAkneu">
+<meta name="keywords" content="" />
+<meta name="description" content="" />
+<meta content="Cubes d.o.o." name="author" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+<!--iOS compatibile-->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="">
+<link rel="apple-touch-icon" href="https://www.nsz.gov.rs/fronttheme/aseets/img/main-favicon.png">   
+
+<!--Android compatibile-->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="aplication-name" content="">
+<link rel="icon" type="icon/png" href="https://www.nsz.gov.rs/fronttheme/aseets/img/main-favicon.png">
+
+<!--theme css-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/theme.css" rel="stylesheet" type="text/css"/>
+
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@500&display=swap" rel="stylesheet"> 
+
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/swiper-bundle.min.css" rel="stylesheet" type="text/css"/>
+
+<!--select2 css-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/select2.css" rel="stylesheet" type="text/css"/>
+
+<!--fancybox css-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/jquery.fancybox.min.css" rel="stylesheet" type="text/css"/>
+
+<!--external css, like plugins ...-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/owl.carousel.css" rel="stylesheet" type="text/css"/> 
+
+<!--developer css-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/developer.css?v=1785946571" rel="stylesheet" type="text/css"/>
+
+<!--cookies css-->
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/cookies.css" rel="stylesheet" type="text/css"/>
+
+<link href="https://www.nsz.gov.rs/fronttheme/aseets/css/bootstrap-datepicker.min.css" rel="stylesheet" type="text/css"/>
+
+<style>
+	:root {
+		--header-bg: rgba(0, 25, 53,.97);
+	}
+	.disabled.day{
+        color: #f2f2f2 !important;
+    }
+</style>
+
+<link rel="icon" href="https://www.nsz.gov.rs/fronttheme/aseets/img/main-favicon.png" type="image/gif" sizes="16x16">
+
+
+<!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+<!--[if lt IE 9]>
+  <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+  <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+<![endif]-->
+        
+<!-- App favicon -->
+<link rel="shortcut icon" href="https://www.nsz.gov.rs/fronttheme/aseets/img/favicon.ico">
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-T2W8G90CZ1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-T2W8G90CZ1');
+</script>
+
+<script src="https://www.google.com/recaptcha/api.js?render=6LcCyOYbAAAAAImi4doUnYQgDpunmAgr8xeyoRzF"></script>
+<script>
+	grecaptcha.ready(function() {
+		grecaptcha.execute('6LcCyOYbAAAAAImi4doUnYQgDpunmAgr8xeyoRzF', {action: ''}).then(function(token) {
+			if($('.contact-form').length)
+			$('.contact-form').prepend('<input type="hidden" name="g-recaptcha-response" value="' + token + '">');
+
+			if($('.project-form').length)
+			$('.project-form').prepend('<input type="hidden" name="g-recaptcha-response" value="' + token + '">');
+
+		});
+	});
+</script>
+
+
+<script>
+	var driver_license_tags = [];
+	var computer_skills_tags = [];
+	var language_tags = [];
+</script>
+
+
+    </head>
+    <body>
+
+        <!-- Begin page -->
+        <!-- Header -->
+        <body>
+    <p class="translate_helper"></p>
+    
+
+    
+    
+    <header class="fixed-top">
+        <div class="container">
+            <nav class="navbar position-relative">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a href="/" class="logo">
+                        <img src="/fronttheme/aseets/img/logo.png" alt=""/>
+                    </a>
+                    <div class="d-flex">
+                        <div class="mobile-search d-lg-none">
+                            <div>
+                                <a href="javascript:void(0);" class="search">
+                                    <img src="/fronttheme/aseets/img/search.svg" alt="Претрага" />
+                                </a>
+                                <form class="header-search-form form-inline align-items-center" method="get" action="https://www.nsz.gov.rs/sadrzaji/pretraga">
+                                    <input type="hidden" name="_token" value="6cxhVNpbyhrCeFrL4vpqb9NSn5jIEubSDNDAkneu">                                    <div class="input-group bg-white d-flex">
+                                        <input type="text" class="form-control" placeholder="Претрага" value="" id="search_term" name="search_term" />
+                                        <div class="input-group-append">
+                                            <button class="btn" type="submit">
+                                                <img src="/fronttheme/aseets/img/search.svg">
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="mobile-user d-lg-none">
+
+                                                        <a href="https://www.nsz.gov.rs/employee" class="register">
+                                                                <img src="/fronttheme/aseets/img/user.svg" alt="Login">
+                                <!--<span>Login</span>-->
+                                                            </a>
+                            
+                            <!--<a href="https://www.nsz.gov.rs/company" class="register" style="margin-left: 10px">
+                                                                <img src="/fronttheme/aseets/img/user.svg" alt="">
+                                <span>За послодавце</span>
+                                                            </a>-->
+                        </div>
+                        <button class="navbar-toggle">
+                            <svg width="100" height="100" viewBox="0 0 100 100">
+                                <path class="line line1" d="M 20,29.000046 H 80.000231 C 80.000231,29.000046 94.498839,28.817352 94.532987,66.711331 94.543142,77.980673 90.966081,81.670246 85.259173,81.668997 79.552261,81.667751 75.000211,74.999942 75.000211,74.999942 L 25.000021,25.000058" />
+                                <path class="line line2" d="M 20,50 H 60" />
+                                <path class="line line3" d="M 20,70.999954 H 80.000231 C 80.000231,70.999954 94.498839,71.182648 94.532987,33.288669 94.543142,22.019327 90.966081,18.329754 85.259173,18.331003 79.552261,18.332249 75.000211,25.000058 75.000211,25.000058 L 25.000021,74.999942" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Top Menu -->
+                <ul class="main-nav">
+                    
+                                        <li>
+                        <a href="/" class="nav-links">Насловна</a>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            О нама 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="/nsz/o-nsz/4050">О НСЗ</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/upravni-odbor-nacionalne-sluzbe/4046">Управни одбор</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/istorijat/4045">Историјат</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/organizaciona-struktura/4155">Организациона структура</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/organizaciona-struktura-direkcije-–-radna-jedinica-u-beogradu/8234">Дирекција НСЗ</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaj/pravna-akta/4048">Правни акти</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaji/projekti/275">Пројекти</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaj/finansije/4049">Финансије</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/medjunarodna-saradnja/4116">Међународна сарадња</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            Огласи 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="https://nsz.gov.rs/employee/jobs/search">Сви оглашени послови</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaji/poslovi/279">Огласи из публикације &quot;Послови&quot;</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="https://www.nsz.gov.rs/nsz/oglasi-sa-portala-infostud/9843">ОГЛАСИ СА ПОРТАЛА ИНФОСТУД</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/oglasi-sa-portala-lako-do-posla/10703">Огласи са портала Лако до посла</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            Е-Услуге 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="/nsz/euprava/4148">еУправа</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            Документи 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="/sadrzaji/dokumenti/12">Документи</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaj/obrasci/4057">Обрасци</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            Инфо 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="/sadrzaji/dogadjaji/159">Догађаји</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaji/vesti/158">Вести</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/sadrzaji/saopstenja/156">Саопштења</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+                    
+                    <li>
+                        <a href="javascript:void(0);" class="nav-links">
+                            Контакт 
+                            <span class="fa fa-angle-down toggle-submenu"></span>
+                            <span class="fa fa-angle-down desctop-submenu"></span>
+                        </a>
+                        <ul class="submenu">
+                                                                                    <li>
+                                <a href="/nsz/direkcija/4051">Дирекција</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/filijale/4052">Филијале</a>
+                            </li>
+                                                                                                                <li>
+                                <a href="/nsz/pokrajinske-sluzbe/4053">Покрајинске службе</a>
+                            </li>
+                                                                                </ul>
+                    </li>
+                    
+                    
+            
+                    <li class='lang-links lang-links1'>
+                        <a href="javascript:void(0);" onclick="setLang('cirilica');" class="cir nav-links  active  lang-link">ЋИР</a>
+                    </li>
+
+                    <li class='lang-links'>
+                        <a href="javascript:void(0);" onclick="setLang('latinica');" class="lat nav-links lang-link">LAT</a>
+                    </li class='lang-links'>
+
+                    <!--<li class='lang-links'>
+                        <a href="javascript:void(0);" class="en  nav-links">EN</a>
+                    </li>--><!-- /?lang=en -->
+                </ul>
+                
+                <div class="d-none d-lg-flex desktop-menu">
+                    <div class="position-relative">
+                        <a href="#" class="search">
+                            <img src="/fronttheme/aseets/img/search.svg" alt="">
+                        </a>
+                        <form class="header-search-form form-inline align-items-center" method="get" action="https://www.nsz.gov.rs/sadrzaji/pretraga">
+                            <input type="hidden" name="_token" value="6cxhVNpbyhrCeFrL4vpqb9NSn5jIEubSDNDAkneu">                            <div class="input-group bg-white d-flex">
+                                <input type="text" class="form-control" placeholder="Претрага" value="" id="search_term" name="search_term" />
+                                <div class="error-msg"></div>
+                                <div class="input-group-append">
+                                    <button class="btn" type="submit">
+                                        <img src="/fronttheme/aseets/img/search.svg">
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                                        <a href="https://www.nsz.gov.rs/employee" class="user">
+                                                <img src="/fronttheme/aseets/img/user.svg" alt="">
+                        <span class="my-profile-width">Пријава</span>
+                                            </a>
+                    
+                    <!--<a href="https://www.nsz.gov.rs/company" class="user" style="margin-left: 10px">
+                                                <img src="/fronttheme/aseets/img/user.svg" alt="">
+                        <span>За послодавце</span>
+                                            </a>-->
+
+                </div>
+            </nav>
+        </div>
+
+                
+            </header><!--/HEADER-->
+
+        
+        <!-- Main content -->
+        
+<!--MAIN-->
+<main>
+    <section class="job-search-section">
+        <div class="container">
+            <div class="row justify-content-center">
+                                <div class="col-12  col-sm-12 ">
+                    <h2 class="content-line-title">Претрага</h2>
+                    <form method="get" action="" class="search-jobs">
+                        <input type="hidden" name="_token" value="6cxhVNpbyhrCeFrL4vpqb9NSn5jIEubSDNDAkneu">                        <div class="search-jobs-heading d-lg-flex justify-content-between">
+                            <div class="form-group d-flex search-holder">
+                                <input type="text" class="form-control" name="keyword" value="  " placeholder="Кључна реч" onfocus="this.placeholder = ''" onblur="this.placeholder ='Кључна реч'" >
+                                <div class="input-group-append">
+                                    <button class="btn" type="submit">
+                                        <img src="/fronttheme/aseets/img/search.svg">
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="button" class="show-parameters">
+                                Прикажи више                                <img src="/fronttheme/aseets/img/register-forms/form-chevron.svg">
+                            </button>
+                        </div>
+                        <div class="parameters-open">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="occupations">Група занимања</label>
+                                        <select name="category_id[]" class="occupations">
+                                            <option value="" data-display="Одабери">Одабери</option>
+                                                                                        <option value="20" >Администрација</option>
+                                                                                        <option value="12" >Архитектура и урбанизам</option>
+                                                                                        <option value="2" >Ветерина</option>
+                                                                                        <option value="5" >Геологија, рударство и металургија</option>
+                                                                                        <option value="11" >Грађевинарство и геодезија</option>
+                                                                                        <option value="16" >Економија, финансије и осигурање</option>
+                                                                                        <option value="7" >Електротехника и телекомуникације</option>
+                                                                                        <option value="30" >Занатске и личне услуге</option>
+                                                                                        <option value="28" >Заштита животне средине и заштита на раду</option>
+                                                                                        <option value="22" >Здравство и фармација</option>
+                                                                                        <option value="18" >Информатика и програмирање</option>
+                                                                                        <option value="24" >Култура, медији и односи с јавношћу</option>
+                                                                                        <option value="6" >Машинство и обрада метала</option>
+                                                                                        <option value="17" >Менаџмент и организација</option>
+                                                                                        <option value="25" >Наука и образовање</option>
+                                                                                        <option value="27" >Одбрана, безбедност и заштита имовине и лица</option>
+                                                                                        <option value="1" >Пољопривреда, рибарство и шумарство</option>
+                                                                                        <option value="19" >Право</option>
+                                                                                        <option value="4" >Прерада дрвета и производња намештаја</option>
+                                                                                        <option value="3" >Производња и прерада хране</option>
+                                                                                        <option value="26" >Развој људских ресурса</option>
+                                                                                        <option value="13" >Саобраћај и транспорт</option>
+                                                                                        <option value="21" >Социјални рад и заштита</option>
+                                                                                        <option value="10" >Текстилство и кожарство</option>
+                                                                                        <option value="14" >Трговина, комерцијала, набавка</option>
+                                                                                        <option value="15" >Угоститељство и туризам</option>
+                                                                                        <option value="23" >Уметност и дизајн</option>
+                                                                                        <option value="29" >Физичка култура и спорт</option>
+                                                                                        <option value="8" >Хемијска технологија и прерада неметала</option>
+                                                                                        <option value="9" >Штампарство и графичарство</option>
+                                                                                    </select>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="degree_id">Степен образовања</label>
+                                        <select name="degree_id">
+                                            <option value="" data-display="Одабери">Одабери</option>
+                                                                                        <option value="1" >Без школе</option>
+                                                                                        <option value="2" >Основна школа</option>
+                                                                                        <option value="3" >Средња школа - I степен (1 година)</option>
+                                                                                        <option value="4" >Средња школа - II степен (2 године)</option>
+                                                                                        <option value="5" >Средња школа - III степен (3 године)</option>
+                                                                                        <option value="6" >Средња школа - IV степен (4 године)</option>
+                                                                                        <option value="7" >Средња школа - V степен (5 година)</option>
+                                                                                        <option value="8" >Виша школа</option>
+                                                                                        <option value="9" >Факултет - VI2 степен (3 године)</option>
+                                                                                        <option value="10" >Факултет - VII1 степен (4-6 година)</option>
+                                                                                        <option value="11" >Магистериј/специјализација</option>
+                                                                                        <option value="12" >Докторат</option>
+                                                                                    </select>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="labor_type_id">Тип запослења</label>
+                                        <select name="labor_type_id[]">
+                                            <option value="" data-display="Одабери">Одабери</option>
+                                                                                        <option value="1" >Неодређено</option>
+                                                                                        <option value="2" >Одређено   </option>
+                                                                                        <option value="3" >Уговор о делу  </option>
+                                                                                        <option value="4" >Привремени и повремени послови</option>
+                                                                                        <option value="5" >Сезонски послови</option>
+                                                                                        <option value="6" >Волонтирање</option>
+                                                                                        <option value="7" >Рад на пројекту</option>
+                                                                                    </select>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="place">Место рада</label>
+                                        <select name="place" class="place">
+                                            <option value="" data-display="Одабери">Одабери</option>
+                                                                                        <option value="201" >Штрпце</option>
+                                                                                        <option value="200" >Штимље</option>
+                                                                                        <option value="174" >Шид</option>
+                                                                                        <option value="128" >Шабац</option>
+                                                                                        <option value="173" >Чока</option>
+                                                                                        <option value="127" >Чачак</option>
+                                                                                        <option value="126" >Чајетина</option>
+                                                                                        <option value="125" >Црна Трава</option>
+                                                                                        <option value="199" >Урошевац</option>
+                                                                                        <option value="117" >Ужице</option>
+                                                                                        <option value="124" >Уб</option>
+                                                                                        <option value="121" >Тутин</option>
+                                                                                        <option value="120" >Трстеник</option>
+                                                                                        <option value="119" >Трговиште</option>
+                                                                                        <option value="118" >Топола</option>
+                                                                                        <option value="171" >Тител</option>
+                                                                                        <option value="170" >Темерин</option>
+                                                                                        <option value="116" >Сурдулица</option>
+                                                                                        <option value="197" >Сува Река</option>
+                                                                                        <option value="169" >Суботица</option>
+                                                                                        <option value="168" >Стара Пазова</option>
+                                                                                        <option value="167" >Сремски Карловци</option>
+                                                                                        <option value="166" >Сремска Митровица</option>
+                                                                                        <option value="165" >Србобран</option>
+                                                                                        <option value="196" >Србица</option>
+                                                                                        <option value="164" >Сомбор</option>
+                                                                                        <option value="115" >Сокобања</option>
+                                                                                        <option value="114" >Смедеревска Паланка</option>
+                                                                                        <option value="113" >Смедерево</option>
+                                                                                        <option value="163" >Сечањ</option>
+                                                                                        <option value="162" >Сента</option>
+                                                                                        <option value="111" >Сврљиг</option>
+                                                                                        <option value="110" >Свилајнац</option>
+                                                                                        <option value="1241" >Сви градови </option>
+                                                                                        <option value="112" >Сјеница</option>
+                                                                                        <option value="161" >Рума</option>
+                                                                                        <option value="108" >Рековац</option>
+                                                                                        <option value="107" >Рашка</option>
+                                                                                        <option value="106" >Рача</option>
+                                                                                        <option value="105" >Ражањ</option>
+                                                                                        <option value="104" >Прокупље</option>
+                                                                                        <option value="195" >Приштина</option>
+                                                                                        <option value="194" >Призрен</option>
+                                                                                        <option value="102" >Прибој</option>
+                                                                                        <option value="103" >Пријепоље</option>
+                                                                                        <option value="101" >Прешево</option>
+                                                                                        <option value="100" >Пожега</option>
+                                                                                        <option value="99" >Пожаревац</option>
+                                                                                        <option value="193" >Подујево</option>
+                                                                                        <option value="160" >Пландиште</option>
+                                                                                        <option value="98" >Пирот</option>
+                                                                                        <option value="97" >Петровац</option>
+                                                                                        <option value="159" >Пећинци</option>
+                                                                                        <option value="192" >Пећ</option>
+                                                                                        <option value="96" >Параћин</option>
+                                                                                        <option value="158" >Панчево</option>
+                                                                                        <option value="95" >Осечина</option>
+                                                                                        <option value="191" >Ораховац</option>
+                                                                                        <option value="156" >Опово</option>
+                                                                                        <option value="190" >Обилић</option>
+                                                                                        <option value="157" >Оџаци</option>
+                                                                                        <option value="189" >Ново Брдо</option>
+                                                                                        <option value="155" >Нови Сад</option>
+                                                                                        <option value="94" >Нови Пазар</option>
+                                                                                        <option value="154" >Нови Кнежевац</option>
+                                                                                        <option value="153" >Нови Бечеј</option>
+                                                                                        <option value="152" >Нова Црња</option>
+                                                                                        <option value="93" >Нова Варош</option>
+                                                                                        <option value="92" >Ниш</option>
+                                                                                        <option value="1242" >Није наведено</option>
+                                                                                        <option value="91" >Неготин</option>
+                                                                                        <option value="90" >Мионица</option>
+                                                                                        <option value="89" >Мерошина</option>
+                                                                                        <option value="88" >Медвеђа</option>
+                                                                                        <option value="87" >Мало Црниће</option>
+                                                                                        <option value="151" >Мали Иђош</option>
+                                                                                        <option value="86" >Мали Зворник</option>
+                                                                                        <option value="85" >Мајданпек</option>
+                                                                                        <option value="82" >Лучани</option>
+                                                                                        <option value="81" >Лозница</option>
+                                                                                        <option value="188" >Липљан</option>
+                                                                                        <option value="80" >Лесковац</option>
+                                                                                        <option value="187" >Лепосавић</option>
+                                                                                        <option value="79" >Лебане</option>
+                                                                                        <option value="129" >Лапово</option>
+                                                                                        <option value="78" >Лајковац</option>
+                                                                                        <option value="77" >Кучево</option>
+                                                                                        <option value="76" >Куршумлија</option>
+                                                                                        <option value="150" >Кула</option>
+                                                                                        <option value="75" >Крушевац</option>
+                                                                                        <option value="74" >Крупањ</option>
+                                                                                        <option value="72" >Крагујевац</option>
+                                                                                        <option value="73" >Краљево </option>
+                                                                                        <option value="71" >Коцељева </option>
+                                                                                        <option value="198" >Косовска Митровица</option>
+                                                                                        <option value="186" >Косовска Каменица</option>
+                                                                                        <option value="185" >Косово Поље</option>
+                                                                                        <option value="70" >Косјерић</option>
+                                                                                        <option value="149" >Ковин</option>
+                                                                                        <option value="148" >Ковачица</option>
+                                                                                        <option value="68" >Кнић</option>
+                                                                                        <option value="184" >Клина</option>
+                                                                                        <option value="67" >Кладово</option>
+                                                                                        <option value="147" >Кикинда</option>
+                                                                                        <option value="183" >Качаник</option>
+                                                                                        <option value="146" >Кањижа</option>
+                                                                                        <option value="69" >Књажевац</option>
+                                                                                        <option value="182" >Исток</option>
+                                                                                        <option value="145" >Ириг</option>
+                                                                                        <option value="1239" >Иностранство</option>
+                                                                                        <option value="144" >Инђија</option>
+                                                                                        <option value="66" >Ивањица</option>
+                                                                                        <option value="181" >Зубин Поток</option>
+                                                                                        <option value="143" >Зрењанин</option>
+                                                                                        <option value="203" >Звечан</option>
+                                                                                        <option value="65" >Зајечар</option>
+                                                                                        <option value="64" >Житорађа</option>
+                                                                                        <option value="142" >Житиште</option>
+                                                                                        <option value="63" >Жагубица</option>
+                                                                                        <option value="62" >Жабари</option>
+                                                                                        <option value="141" >Жабаљ</option>
+                                                                                        <option value="61" >Дољевац</option>
+                                                                                        <option value="60" >Димитровград</option>
+                                                                                        <option value="179" >Дечани</option>
+                                                                                        <option value="59" >Деспотовац</option>
+                                                                                        <option value="202" >Гора</option>
+                                                                                        <option value="58" >Горњи Милановац</option>
+                                                                                        <option value="57" >Голубац</option>
+                                                                                        <option value="177" >Глоговац</option>
+                                                                                        <option value="56" >Гаџин Хан</option>
+                                                                                        <option value="178" >Гњилане</option>
+                                                                                        <option value="176" >Вучитрн</option>
+                                                                                        <option value="140" >Вршац</option>
+                                                                                        <option value="172" >Врбас</option>
+                                                                                        <option value="54" >Врање</option>
+                                                                                        <option value="55" >Врњачка Бања</option>
+                                                                                        <option value="53" >Власотинце</option>
+                                                                                        <option value="52" >Владичин Хан</option>
+                                                                                        <option value="51" >Владимирци</option>
+                                                                                        <option value="175" >Витина</option>
+                                                                                        <option value="50" >Велико Градиште</option>
+                                                                                        <option value="49" >Велика Плана</option>
+                                                                                        <option value="48" >Варварин</option>
+                                                                                        <option value="47" >Ваљево</option>
+                                                                                        <option value="46" >Бујановац </option>
+                                                                                        <option value="45" >Брус </option>
+                                                                                        <option value="44" >Босилеград </option>
+                                                                                        <option value="43" >Бор </option>
+                                                                                        <option value="40" >Богатић </option>
+                                                                                        <option value="42" >Бољевац </option>
+                                                                                        <option value="41" >Бојник </option>
+                                                                                        <option value="39" >Блаце </option>
+                                                                                        <option value="139" >Бечеј</option>
+                                                                                        <option value="138" >Беочин</option>
+                                                                                        <option value="38" >Београд-Чукарица</option>
+                                                                                        <option value="1240" >Београд-Сурчин</option>
+                                                                                        <option value="37" >Београд-Стари Град </option>
+                                                                                        <option value="36" >Београд-Сопот</option>
+                                                                                        <option value="35" >Београд-Савски Венац</option>
+                                                                                        <option value="34" >Београд-Раковица</option>
+                                                                                        <option value="33" >Београд-Палилула</option>
+                                                                                        <option value="32" >Београд-Обреновац</option>
+                                                                                        <option value="31" >Београд-Нови Београд</option>
+                                                                                        <option value="30" >Београд-Младеновац</option>
+                                                                                        <option value="29" >Београд-Лазаревац</option>
+                                                                                        <option value="28" >Београд-Земун</option>
+                                                                                        <option value="27" >Београд-Звездара</option>
+                                                                                        <option value="26" >Београд-Гроцка</option>
+                                                                                        <option value="25" >Београд-Врачар</option>
+                                                                                        <option value="24" >Београд-Вождовац </option>
+                                                                                        <option value="23" >Београд-Барајево</option>
+                                                                                        <option value="22" >Београд</option>
+                                                                                        <option value="137" >Бела Црква</option>
+                                                                                        <option value="21" >Бела Паланка</option>
+                                                                                        <option value="136" >Бачки Петровац</option>
+                                                                                        <option value="135" >Бачка Топола</option>
+                                                                                        <option value="134" >Бачка Паланка</option>
+                                                                                        <option value="133" >Бач</option>
+                                                                                        <option value="20" >Баточина </option>
+                                                                                        <option value="18" >Бабушница </option>
+                                                                                        <option value="19" >Бајина Башта</option>
+                                                                                        <option value="17" >Ариље </option>
+                                                                                        <option value="16" >Аранђеловац </option>
+                                                                                        <option value="132" >Апатин</option>
+                                                                                        <option value="131" >Алибунар</option>
+                                                                                        <option value="15" >Алексинац </option>
+                                                                                        <option value="14" >Александровац </option>
+                                                                                        <option value="130" >Ада</option>
+                                                                                        <option value="123" >Ћуприја</option>
+                                                                                        <option value="122" >Ћићевац</option>
+                                                                                        <option value="84" >Љубовија</option>
+                                                                                        <option value="83" >Љиг </option>
+                                                                                        <option value="109" >Јагодина</option>
+                                                                                        <option value="180" >Ђаковица</option>
+                                                                                    </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+
+                    <h2 class="biography-results">
+                        Послови <span>( 617 )</span>
+                    </h2>
+
+                    <div class="jobs-list">
+
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102241'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94283-logo-mark-png-photo.png" alt="Васпитач/ица" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Васпитач/ица
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         ПРЕДШКОЛСКА УСТАНОВА ПЕЕКАБОО  Београд <!--  - <span>Београд-Стари Град ; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102240'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94182-logo-nsz-1-1-photo.png" alt="Мануелни радник у производњи" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Мануелни радник у производњи
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         CHEMCO doo - Бадњевац, Крагујевац  Крагујевац <!--  - <span>Крагујевац; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102239'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94201-logo-nsz-1-1-photo.png" alt="Медицинска сестра/техничар на осталим болничким одељењима" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Медицинска сестра/техничар на осталим болничким одељењима
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Специјална болница за рехабилитацију „Русанда“ Меленци  Зрењанин <!--  - <span>Зрењанин; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102238'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94201-logo-nsz-1-1-photo.png" alt="Помоћни радник у производњи ПВЦ столарије" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Помоћни радник у производњи ПВЦ столарије
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         &quot;B.S.PLAST&quot; ZRENJANIN  Зрењанин <!--  - <span>Зрењанин; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102237'">
+                                <figure class="job-image">
+                                    
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Vaspitač/ica
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         PPU PLAY  Београд <!--  - <span>Београд; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 31.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102236'">
+                                <figure class="job-image">
+                                    
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Сервирка у посебним условима рада
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Specijalna bolnica za psihijatrijske bolesti ‚‚Gornja Toponica‚‚  Niš Crveni krst <!--  - <span>Ниш; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102235'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94193-logo-nsz-1-1-photo.png" alt="Доктор медицине изабрани лекар" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине изабрани лекар
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         ДОМ ЗДРАВЉА &quot;ИРИГ&quot;  Сремска Митровица <!--  - <span>Ириг; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102234'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94193-logo-nsz-1-1-photo.png" alt="Доктор медицине изабрани лекар" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине изабрани лекар
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         ДОМ ЗДРАВЉА &quot;ИРИГ&quot;  Сремска Митровица <!--  - <span>Ириг; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 25.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102233'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94199-logo-nsz-1-1-photo.png" alt="Социјални радник" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Социјални радник
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Установа социјалне заштите дом за смештај одраслих и старијих  &quot;Вила Дар&quot; Пожаревац  Пожаревац <!--  - <span>Пожаревац; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102232'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94194-logo-nsz-1-1-photo.png" alt="Рад у амбуланти за кућне љубимце-ветеринар" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Рад у амбуланти за кућне љубимце-ветеринар
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         DOO EKOSVET VETERINARSKA STANICA, SUBOTICA  Суботица <!--  - <span>Суботица; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102231'">
+                                <figure class="job-image">
+                                    
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Diplomirani defektolog ili diplomirani logoped
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Dečiji edukativni centar &quot;Korak po korak napred&quot;  Нови Сад <!--  - <span>Нови Сад; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 20.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102230'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94202-logo-nsz-1-1-photo.png" alt="Доктор медицине" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Општа болница Параћин  Јагодина <!--  - <span>Параћин; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 12.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102229'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94189-logo-nsz-1-1-photo.png" alt="Доктор медицине" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Дом здравља Дољевац  Ниш <!--  - <span>Ниш; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102228'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94189-logo-nsz-1-1-photo.png" alt="Доктор медицине специјалиста медицине рада- изабрани лекар за одрасле" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине специјалиста медицине рада- изабрани лекар за одрасле
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         Завод за здравствену заштиту радника „Ниш“  Ниш <!--  - <span>Ниш; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102227'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94201-logo-nsz-1-1-photo.png" alt="Продавац у трговини техничке робе" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Продавац у трговини техничке робе
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         SAUBER HAUS 023 DOO ZRENJANIN, Makedonska 7.  Зрењанин <!--  - <span>Зрењанин; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 31.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102226'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94202-logo-nsz-1-1-photo.png" alt="Службеник за јавне набавке" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Службеник за јавне набавке
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         ОПШТА БОЛНИЦА ЈАГОДИНА  Јагодина <!--  - <span>Јагодина; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102225'">
+                                <figure class="job-image">
+                                    
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Доктор медицине у хитној медицинској помоћи
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         DOM ZDRAVLjA BLACE  Блаце  <!--  - <span>Блаце ; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 13.08.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102224'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94276-logo-mark-png-photo.png" alt="Продавац у малопродаји" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Продавац у малопродаји
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         MISS CHILLI DOO BEOGRAD  Београд-Чукарица <!--  - <span>Београд-Барајево; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102223'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94193-logo-nsz-1-1-photo.png" alt="Кувар" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Кувар
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         BPVTIM MONOGRAM DOO  Сремска Митровица <!--  - <span>Инђија; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                                                <div class="single-job d-sm-flex align-items-center justify-content-between" >
+                            <div class="d-sm-flex justify-content-between align-items-center" onclick="document.location.href='https://www.nsz.gov.rs/employee/jobs/preview/102222'">
+                                <figure class="job-image">
+                                    
+                                                                        <img src="/storage/images/94193-logo-nsz-1-1-photo.png" alt="Собарица - спремачица" />
+                                    
+                                                                    </figure>
+                                <div class="d-flex justify-content-center d-sm-block">
+                                    <div>
+                                        <h3 class="job-title">
+                                            Собарица - спремачица
+                                        </h3>
+                                        <p class="job-description m-0">
+                                         BPVTIM MONOGRAM DOO  Сремска Митровица <!--  - <span>Инђија; </span>   -->  
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="job-publish-date d-flex d-sm-block align-items-center justify-content-center">
+                                
+                                
+                                <p> Оглас истиче: 04.09.2026. </p>
+                            </div>
+                        </div>
+                        
+                        
+
+                        <nav class="pt-6 mb-8">
+                            <!--<ul class="pagination">
+                                <li class="page-item active">
+                                    <a href="" class="page-link">
+                                        1
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a href="" class="page-link">
+                                        2
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a href="" class="page-link">
+                                        3
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a href="" class="page-link">
+                                        <span class="fas fa-arrow-right"></span>
+                                    </a>
+                                </li>
+                            </ul>-->
+                            <ul class="pagination" role="navigation">
+        
+                    <li class="page-item disabled" aria-disabled="true" aria-label="pagination.previous">
+                <span class="page-link" aria-hidden="true">&lsaquo;</span>
+            </li>
+        
+        
+                    
+            
+            
+                                                                        <li class="page-item active" aria-current="page"><span class="page-link">1</span></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=2">2</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=3">3</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=4">4</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=5">5</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=6">6</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=7">7</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=8">8</a></li>
+                                                                    
+                            <li class="page-item disabled" aria-disabled="true"><span class="page-link">...</span></li>
+            
+            
+                                
+            
+            
+                                                                        <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=30">30</a></li>
+                                                                                <li class="page-item"><a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=31">31</a></li>
+                                                        
+        
+                    <li class="page-item">
+                <a class="page-link" href="https://www.nsz.gov.rs/employee/jobs/search?page=2" rel="next" aria-label="pagination.next">&rsaquo;</a>
+            </li>
+            </ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!--<section class="our-partners">
+    <div class="container">
+        <div class="text-center">
+            <h2 class="line">
+                Наши партнери            </h2>
+        </div>
+        <div class="partners d-flex flex-wrap flex-lg-nowrap align-items-center justify-content-between">
+            <a href="https://euprava.gov.rs/" target="_blank">
+                <img src="/fronttheme/aseets/img/partners/partner-1.png" alt=""/>
+            </a>
+            <a href="https://www.mfin.gov.rs/" target="_blank">
+                <img src="/fronttheme/aseets/img/partners/partner-2.png" alt=""/>
+            </a>
+            <a href="http://mduls.gov.rs/" target="_blank">
+                <img src="/fronttheme/aseets/img/partners/partner-3.png" alt=""/>
+            </a>
+            <a href="https://mtt.gov.rs/" target="_blank">
+                <img src="/fronttheme/aseets/img/partners/partner-4.png" alt=""/>
+            </a>
+        </div>
+    </div>
+</section>--></main><!--/MAIN-->
+
+        
+        <!-- Main footer -->
+        <!--FOOTER--> 
+<footer style="background: #041f36">
+    <div class="container">
+        <div class="footer-nav">
+            <div>
+                <h4>ТРАЖИТЕ ПОСАО</h4>
+                <ul>
+                                        <li>
+                        <a href="/sadrzaji/konkursi/157" class="nav-links">Конкурси</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaji/dokumenti/12" class="nav-links">Документи</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaji/projekti/275" class="nav-links">Пројекти</a>
+                    </li>
+                                    </ul>
+            </div>
+            <div>
+                <h4>НУДИТЕ ПОСАО</h4>
+                <ul>
+                                        <li>
+                        <a href="/company" class="nav-links">Објавите оглас</a>
+                    </li>
+                                        <li>
+                        <a href="/company" class="nav-links">База биографија</a>
+                    </li>
+                                        <li>
+                        <a href="/nsz/podrska-poslodavcima/4097" class="nav-links">Подршка послодавцима</a>
+                    </li>
+                                        <li>
+                        <a href="/live/nudite-posao/agencije-za-posredovanje-u-zaposljavanju.cid170" class="nav-links">Агенције за запошљавање</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/pdf-arhiva-poslova/4108" class="nav-links">Публикација &quot;Послови&quot;</a>
+                    </li>
+                                    </ul>
+            </div>
+            <div>
+                <h4>ИНФО</h4>
+                <ul>
+                                        <li>
+                        <a href="/sadrzaji/vesti/158" class="nav-links">Вести</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaji/saopstenja/156" class="nav-links">Саопштења</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaji/dogadjaji/159" class="nav-links">Догађаји</a>
+                    </li>
+                                    </ul>
+            </div>
+            <div>
+                <h4>О НАМА</h4>
+                <ul>
+                                        <li>
+                        <a href="/sadrzaji/konkursi/157" class="nav-links">Конкурси</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/pravna-akta/4048" class="nav-links">Правни акти</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaji/projekti/275" class="nav-links">Пројекти</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/prodaja-osnovnih-sredstava/4120" class="nav-links">Продаја основних средстава</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/javne-nabavke/77475" class="nav-links">Јавне набавке</a>
+                    </li>
+                                        <li>
+                        <a href="#" class="nav-links">Оптерећење саветника</a>
+                    </li>
+                                        <li>
+                        <a href="https://www.minrzs.gov.rs/sr/dokumenti/dokumenti/ispit-zaposljavanje" class="nav-links">Испит - Запошљавање</a>
+                    </li>
+                                        <li>
+                        <a href="/filemanager/Files/Dokumenta/Broj%20zaposlenih/Podaci%20o%20broju%20zaposlenih%20i%20radno%20anga%C5%BEovanih%20lica%20u%20NSZ.xls" class="nav-links">Број запослених</a>
+                    </li>
+                                    </ul>
+            </div>
+            <div>
+                <h4>НСЗ МРЕЖА</h4>
+                <ul>
+                                        <li>
+                        <a href="/nsz/direkcija/4051" class="nav-links">Дирекција</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/filijala-beograd/4054" class="nav-links">Филијала Београд</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/filijala-novi-sad/4067" class="nav-links">Филијала Нови Сад</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/filijala-nis/4066" class="nav-links">Филијала Ниш</a>
+                    </li>
+                                        <li>
+                        <a href="/nsz/filijale/4052" class="nav-links">Сва места</a>
+                    </li>
+                                        <li>
+                        <a href="tel:0800300301" class="nav-links">Позивни центар 0800/300-301</a>
+                    </li>
+                                    </ul>
+            </div>
+            <div>
+                <h4>ДОКУМЕНТА</h4>
+                <ul>
+                                        <li>
+                        <a href="https://informator.poverenik.rs/informator?org=uMg2zA8gzitrLCMBN" class="nav-links">Информатор о раду НСЗ</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/zastita-podataka-o-licnosti/4102" class="nav-links">Заштита података о личности</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/statisticki-bilteni-nsz/4111" class="nav-links">Статистички билтени НСЗ</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/jedinstveni-kodeks-sifara/4114" class="nav-links">Јединствени кодекс шифара</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/plan-javnih-nabavki/4121" class="nav-links">План јавних набавки</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/anketa-poslodavaca/4112" class="nav-links">Анкета послодаваца</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/katalog-obuka-za-trziste-rada/4122" class="nav-links">Каталог обука</a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/politike-ims/4123" class="nav-links">Политике ИМС</a>
+                    </li>
+                                        <li>
+                        <a href="/live/o-nama/politika-privatnosti-ceo-tekst-.cid64296" class="nav-links">Политика приватности</a>
+                    </li>
+                                    </ul>
+                
+                <ul class="social-links">
+                                        <li>
+                        <a href="https://www.linkedin.com/company/80403266" class="nav-links fa-linkedin"></a>
+                    </li>
+                                        <li>
+                        <a href="https://www.instagram.com/nac_sluzbazazaposljavanje/" class="nav-links fa-instagram"></a>
+                    </li>
+                                        <li>
+                        <a href="https://invite.viber.com/?g2=AQAr02pE3MvpHFCT%2FpYso1m8gRcjQa1RNIpl1NOD%2FI0WX%2FxiNm3TUlR8Kw3gVMkJ" class="nav-links fa-viber"></a>
+                    </li>
+                                    </ul>
+            </div>
+        </div>
+        <div class="d-flex">
+            <div class="giz d-none d-lg-block">
+                <a href="#">
+                    <img src="/fronttheme/aseets/img/footer/giz.png" alt=""/>
+                </a>
+                <p class="mt-4">
+                    Израду овог веб-сајта подржао је Глобални програм „Миграције 
+                    и дијаспора“, који у оквиру Немачке развојне сарадње спроводи
+                    Deutsche Gesellschaft für Internationale Zusammenarbeit (GIZ) GmbH
+                </p>
+            </div>
+            <div class="newsletter">
+                <h4 class="mb-8">ПРИЈАВА НА МЕЈЛИНГ ЛИСТУ</h4>
+                <form action="action" id="newsletter_form" class="d-flex align-items-center">
+                    <div class="form-group">
+                        <input type="email" name="newsletter_email" class="form-control" placeholder="Унеси емаил адресу">
+                        <div class="error-msg"></div>
+                                            </div>
+                    <button class="primary" type="submit">Пријава</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <div class="container">
+            <div class="d-lg-flex align-items-center justify-content-between">
+                <ul class="d-flex align-items-center justify-content-center justify-content-lg-start mb-6 mb-lg-0 text-center">
+                                        <li>
+                        <a href="/nsz/uslovi-i-prava-koriscenja/4098">
+                        Услoви и права кoришћeња
+                        </a>
+                    </li>
+                                        <li>
+                        <a href="/sadrzaj/politike-ims/4123">
+                        Политика приватности
+                        </a>
+                    </li>
+                                        <li>
+                        <a href="http://nsz.gov.rs/">
+                        Насловна
+                        </a>
+                    </li>
+                                        <li>
+                        <a href="/nsz/filijale/4052">
+                        Контакт
+                        </a>
+                    </li>
+                                    </ul>
+                <p class="copyright text-center mb-4 mb-lg-0">&copy; 2026. Сва права задржана</p>
+            </div>
+        </div>
+    </div>
+</footer><!--END FOOTER-->        
+        <!-- Cookies -->
+        <!-- COOKIE -->
+<div class="d-none">
+    <div class="py-3 fixed-bottom d-flex justify-content-center align-items-center first-notice-container">
+        <p class="mb-0 text-center text-white pr-2 pr-md-4">
+            Овај вебсајт користи cookies да би вам обезбедили најбољу услугу. Додатне информације можете пронаћи на страници  <a href="/live/o-nama/politika-privatnosti-ceo-tekst-.cid64296" target='_blank'>Политика приватности</a>.
+        </p>
+        <a href="" class="mr-2 first-notice-container-remove"><span class="btn btn-outline-light">Прихвати</span></a>
+    </div>
+</div>
+<!-- END COOKIE -->        
+        <!-- Scripts -->
+        <!-- jQuery  -->
+<div class="loader-intro">
+    <div>
+        <img src="/fronttheme/aseets/img/logo.png" alt="">
+    </div>
+</div>
+
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery.validate.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/swiper-bundle.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/select2.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/owl.carousel.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/main.js?v=1785946571"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/validator.js?v=1785946571"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/ckeditor.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/dev.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery.highlight-5.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/swiper.min.js"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery.fancybox.min.js"></script>
+
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/bootstrap-datepicker.min.js"></script>
+<script type="text/javascript">
+    jQuery(document).ready(function () { 
+        function isValidDate(d) {
+            return d instanceof Date && !isNaN(d);
+        }
+
+        if(jQuery("input.datepicker-field").length){
+            var date_input = $('input.datepicker-field');
+            var container = $('input.datepicker-field').length>0 ? $('input.datepicker-field').parent() : "body";
+            var options = {
+                format: 'dd.mm.yyyy',
+                container: container,
+                todayHighlight: true,
+                autoclose: true,
+                startDate: new Date(),
+            };
+            date_input.datepicker(options).on("changeDate", function (ev) {
+                $('input.datepicker-field').val(formatDate(ev.date));
+            });
+        }
+
+        if($("input[name='start_date']").length){
+            $( "input[name='start_date']" ).change(function() {
+                var sd = $("input[name='start_date']").val();
+                var parts = sd.split('.');
+                var cls = new Date(parts[2], parts[1], parts[0]); 
+
+                if(isValidDate(cls)){
+                    var next_date = new Date(cls.getFullYear(), cls.getMonth(), cls.getDay()+30);
+                }else{
+                    var next_date = new Date(new Date().setDate(new Date().getDate() + 30))
+                }
+
+                $("input.job_expired_date" ).val( "" )
+                $("input.job_expired_date" ).datepicker( "destroy" )
+
+                var date_input2 = $('input.job_expired_date');
+                var container = $('input.job_expired_date').length>0 ? $('input.job_expired_date').parent() : "body";
+                var options = {
+                    format: 'dd.mm.yyyy',
+                    container: container,
+                    todayHighlight: true,
+                    autoclose: true,
+                    startDate: new Date(),
+                    endDate: next_date
+                };
+                date_input2.datepicker(options).on("changeDate", function (ev) {
+                    $('input.job_expired_date').val(formatDate(ev.date));
+                });
+            });
+        }
+
+        function formatDate(date) {
+            var d = new Date(date),
+                month = '' + (d.getMonth() + 1),
+                day = '' + d.getDate(),
+                year = d.getFullYear();
+
+            if (month.length < 2) 
+                month = '0' + month;
+            if (day.length < 2) 
+                day = '0' + day;
+
+            return [day, month, year].join('.');
+        }
+
+
+        if($(".job_expired_date").length){
+            /*var sd = $("input[name='start_date]").val();
+            var cls = new Date(sd);
+
+            if(isValidDate(cls)){
+                var next_date = new Date(cls.getFullYear(), cls.getMonth(), cls.getDay()+32);
+            }else{
+                var d = new Date();
+                var next_date = new Date(d.getFullYear(), d.getMonth(), d.getDay()+32);
+            }*/
+
+            var date_input3 = $('input.job_expired_date');
+                var container = $('input.job_expired_date').length>0 ? $('input.job_expired_date').parent() : "body";
+                var options = {
+                    format: 'dd.mm.yyyy',
+                    container: container,
+                    todayHighlight: true,
+                    autoclose: true,
+                    startDate: new Date(),
+                    endDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+                };
+                date_input3.datepicker(options).on("changeDate", function (ev) {
+                    $('input.job_expired_date').val(formatDate(ev.date));
+                });
+            }
+
+    });
+</script>
+<!-- Custom -->
+<script type="text/javascript">
+    var app_lang = "sr";
+</script>
+<script src="/fronttheme/lang/sr.js"></script>
+<!--<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/lang.translator.js"></script>-->
+
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/developer.js?v=1785946571"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/cookies.js"></script>
+
+<script type="text/javascript">
+    jQuery(document).ready(function () {
+        
+        if(jQuery(".content-box a").length){
+            jQuery(".content-box a").each(function (index) {
+                var strlink = jQuery(this).attr("href");
+                var target = false;
+
+                if (strlink.indexOf(".pdf") >= 0 || strlink.indexOf(".PDF") >= 0) {
+                    jQuery(this).addClass("pdficon");
+                    target = true;
+                } else if (strlink.indexOf(".doc") >= 0 || strlink.indexOf(".DOC") >= 0 || strlink.indexOf(".docx") >= 0 || strlink.indexOf(".DOCX") >= 0) {
+                    jQuery(this).addClass("docicon");
+                    target = true;
+                } else if (strlink.indexOf(".xls") >= 0 || strlink.indexOf(".XLS") >= 0 || strlink.indexOf(".xlsx") >= 0 || strlink.indexOf(".XLSX") >= 0) {
+                    jQuery(this).addClass("xslicon");
+                    target = true;
+                } else if (strlink.indexOf(".zip") >= 0 || strlink.indexOf(".ZIP") >= 0 || strlink.indexOf(".7z") >= 0 || strlink.indexOf(".gzip") >= 0) {
+                    jQuery(this).addClass("zip");
+                    target = true;
+                } else if (strlink.indexOf("/sadrzaj/") >= 0 || strlink.indexOf("/SADRZAJ/") >= 0) {
+                    jQuery(this).addClass("folder");
+                }
+
+                if( target ){
+                    jQuery(this).attr('target','_blank');
+                }
+            });
+        }
+    });
+</script>
+
+<!--<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery142.min.js?ver=4.9.10"></script>-->
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/jquery.transliterate-min.js?ver=4.9.10"></script>
+<script src="https://www.nsz.gov.rs/fronttheme/aseets/js/translate.js?ver=4.9.10"></script>
+
+<script type="text/javascript">
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+            'Accept': 'application/json'
+        },
+        success: function(response){
+            if(response.message) {
+                alert(response.message);
+            }
+
+            if($('#datatables').length > 0) {
+                $('#datatables').DataTable().draw();
+            } else {
+                console.log('No datatables to reload');
+            }
+        },
+        error: function(e){
+            alert("An error occured when trying to execute this action", "error");
+            console.error(e);
+        }
+    });
+</script><!-- begin:system-message rendering script-->
+<script type="text/javascript">
+/*function showSystemMessage(text, type) {
+    type = type ? type : 'success';
+
+    options = {
+        type: type,
+        title: text,
+        showConfirmButton: false,
+        position: 'top-end'
+    };
+
+    if (type === 'error') {
+        options['showConfirmButton'] = true;
+        options['confirmButtonClass'] = 'btn-danger';
+    } else {
+        options['timer'] = 1500;
+    }
+
+    Swal.fire(options);
+}*/
+
+</script>
+<!-- end:system-message rendering script-->
+
+        
+        <!-- Loading -->
+        <div class='_system_loading'><img src='/fronttheme/aseets/img/loading.gif' /></div>
+    </body>
+</html>

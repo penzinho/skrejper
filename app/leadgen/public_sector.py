@@ -32,8 +32,11 @@ _SUBSTRING_TERMS = (
 )
 
 # Whole-word terms: short abbreviations that would otherwise match inside
-# ordinary words ("jump" contains "ju").
-_WORD_TERMS = ("ju", "jzu", "jp", "jkp", "jspu", "mup", "skola", "opstina", "opcina", "grad")
+# ordinary words ("jump" contains "ju"). "os" is the Serbian abbreviation for
+# osnovna škola (ОШ), extremely common on NSZ; the longer school forms
+# ("srednja skola", "gimnazija", ...) are covered by the substring list.
+_WORD_TERMS = ("ju", "jzu", "jp", "jkp", "jspu", "mup", "skola", "os",
+               "opstina", "opcina", "grad", "predskolska")
 
 _WORD_RE = re.compile(r"(?<![a-z0-9])(?:" + "|".join(_WORD_TERMS) + r")(?![a-z0-9])")
 

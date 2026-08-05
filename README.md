@@ -201,10 +201,17 @@ Trenutni izvori:
 | **MojPosao.ba** (`mojposao.ba`) | BiH | vlastiti JSON search API (UUID-ovi, samo aktivni oglasi → povijest se akumulira) |
 | **Lako do posla** (`lakodoposla.com`) | Srbija | REST API koji vraća **PIB, adresu, telefon, web i email poslodavca inline** — nula enrichmenta |
 | **Poslovi.rs** (`poslovi.rs`) | Srbija | server-rendered, popis oglasa iz `sitemap.xml`, naziv+grad iz oglasa |
+| **NSZ** (`nsz.gov.rs`) | Srbija | sekvencijalni ID-evi `/employee/jobs/preview/{id}`, kontakt telefon u oglasu, filter javnog sektora, transliteracija ćirilice |
 
-Sljedeće: NSZ (Srbija). Iza defaultno isključenih flagova: Infostud (uvjeti
-korištenja), FZZZ i direktni ZZZ RS. BoljiPosao.com servira prazan HTML shell
-običnom HTTP klijentu (render samo kroz JS) pa treba headless — odgođeno.
+Sljedeće (iza defaultno isključenih flagova): Infostud (uvjeti korištenja),
+FZZZ i direktni ZZZ RS. BoljiPosao.com servira prazan HTML shell običnom HTTP
+klijentu (render samo kroz JS) pa treba headless — odgođeno.
+
+NSZ preslikava i Infostud/LakoDoPosla oglase te je dobrim dijelom javni
+sektor (škole, domovi zdravlja, opštinske uprave). Filter javnog sektora te
+zapise **označava** (kolona ostaje u bazi), a export ih po defaultu izostavlja
+— tako privatna „škola stranih jezika" ostaje dohvatljiva. Preslike se rješavaju
+kroz cross-source dedup, ne posebnim kodom.
 
 Pravila pristojnosti: pošten User-Agent s kontaktom (`SKREJPER_CONTACT`,
 zadano `app@protalent.hr`), pauza između zahtjeva po hostu (`LEADGEN_DELAY_S`,
