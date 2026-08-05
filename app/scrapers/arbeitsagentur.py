@@ -247,9 +247,11 @@ BERUFSFELDER = (
 # queried (and deduped) together. This is what the input form exposes; the raw
 # Berufsfeld names above are still accepted as free text. Every Berufsfeld
 # belongs to exactly one group (verified by `_check_groups.py`).
+# Labels are Croatian — they are display + export text only. The Berufsfelder
+# themselves stay German because they are sent verbatim to the board's API.
 ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
     "bau_ausbau": {
-        "label": "Bau, Ausbau & Gebäudetechnik",
+        "label": "Građevina, završni radovi i instalacije",
         "berufsfelder": [
             "Hochbau",
             "Tiefbau",
@@ -266,7 +268,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "metall_maschinen_elektro": {
-        "label": "Metall, Maschinen, Elektro & Fahrzeugtechnik",
+        "label": "Metal, strojarstvo, elektrotehnika i vozila",
         "berufsfelder": [
             "Metallbau und Schweißtechnik",
             "Metallbearbeitung",
@@ -285,7 +287,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "produktion_fertigung": {
-        "label": "Produktion & Fertigung",
+        "label": "Proizvodnja i prerada",
         "berufsfelder": [
             "Kunststoff- und Kautschukherstellung",
             "Lebensmittel- und Genussmittelherstellung",
@@ -303,7 +305,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "logistik_verkehr": {
-        "label": "Logistik, Lager & Verkehr",
+        "label": "Logistika, skladište i promet",
         "berufsfelder": [
             "Lagerwirtschaft, Post und Zustellung, Güterumschlag",
             "Kaufleute - Verkehr und Logistik",
@@ -318,7 +320,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "handel_verkauf": {
-        "label": "Handel, Einkauf & Verkauf",
+        "label": "Trgovina, nabava i prodaja",
         "berufsfelder": [
             "Verkauf (ohne Produktspezialisierung)",
             "Verkauf Bekleidung, Elektro, KFZ, Hartwaren",
@@ -330,7 +332,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "gastronomie_tourismus": {
-        "label": "Gastronomie, Hotellerie & Tourismus",
+        "label": "Gastronomija, hotelijerstvo i turizam",
         "berufsfelder": [
             "Gastronomie",
             "Speisenzubereitung",
@@ -339,7 +341,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "gesundheit_pflege": {
-        "label": "Gesundheit, Medizin & Pflege",
+        "label": "Zdravstvo, medicina i njega",
         "berufsfelder": [
             "Altenpflege",
             "Arzt- und Praxishilfe",
@@ -355,7 +357,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "bildung_soziales": {
-        "label": "Bildung, Soziales & Erziehung",
+        "label": "Obrazovanje, socijalni rad i odgoj",
         "berufsfelder": [
             "Erziehung, Sozialarbeit, Heilerziehungspflege",
             "Lehrtätigkeit an allgemeinbildenden Schulen",
@@ -367,7 +369,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "it": {
-        "label": "IT & Softwareentwicklung",
+        "label": "IT i razvoj softvera",
         "berufsfelder": [
             "Informatik",
             "Softwareentwicklung und Programmierung",
@@ -376,7 +378,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "buero_finanzen_recht": {
-        "label": "Büro, Finanzen, Recht & Management",
+        "label": "Ured, financije, pravo i menadžment",
         "berufsfelder": [
             "Büro und Sekretariat",
             "Verwaltung",
@@ -391,7 +393,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "marketing_medien_kunst": {
-        "label": "Marketing, Medien, Design & Kunst",
+        "label": "Marketing, mediji, dizajn i umjetnost",
         "berufsfelder": [
             "Werbung und Marketing",
             "Öffentlichkeitsarbeit",
@@ -415,7 +417,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "reinigung_sicherheit_versorgung": {
-        "label": "Reinigung, Sicherheit, Ver- & Entsorgung",
+        "label": "Čišćenje, sigurnost, opskrba i zbrinjavanje",
         "berufsfelder": [
             "Reinigung",
             "Objekt-, Personen-, Brandschutz, Arbeitssicherheit",
@@ -428,7 +430,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "landwirtschaft_natur": {
-        "label": "Landwirtschaft, Tiere & Natur",
+        "label": "Poljoprivreda, životinje i priroda",
         "berufsfelder": [
             "Gartenbau",
             "Landwirtschaft",
@@ -442,7 +444,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "wissenschaft_forschung": {
-        "label": "Naturwissenschaften & Forschung",
+        "label": "Prirodne znanosti i istraživanje",
         "berufsfelder": [
             "Biologie",
             "Physik",
@@ -457,7 +459,7 @@ ARBEITSAGENTUR_GROUPS: dict[str, dict] = {
         ],
     },
     "oeffentlicher_dienst_sicherheit": {
-        "label": "Öffentlicher Dienst, Sicherheit & Militär",
+        "label": "Javna služba, sigurnost i vojska",
         "berufsfelder": [
             "Polizei- und Kriminaldienst, Gerichts- und Justizvollzug",
             "Angehörige der regulären Streitkräfte in sonstigen Rängen",
