@@ -9,4 +9,5 @@ dist/
 *.zip
 app/desktop/resources/icon.ico
 app/desktop/resources/icon.icns
+app/desktop/build_info.py
 .DS_Store

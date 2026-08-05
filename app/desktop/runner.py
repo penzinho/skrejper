@@ -274,8 +274,50 @@ def _install_stop_handler() -> None:
         pass
 
 
+def _probe(config: dict, events: _EventWriter) -> int:
+    """One minimal request, to answer "is the board reachable" in two seconds.
+
+    A full run takes minutes and buries the answer in per-category noise; this
+    exists so "it doesn't work" can be diagnosed without one.
+    """
+    events.emit("log", line=f"[gui] Skrejper {paths.version_string()}")
+
+    from app.scrapers import arbeitsagentur
+
+    timeout = int(os.getenv("ARBEITSAGENTUR_SEARCH_TIMEOUT", "60"))
+    payload = arbeitsagentur._search_json(
+        None, config.get("keyword") or None, None, None, 1, 1, timeout
+    )
+
+    if payload is None:
+        # _search_json has already logged the status and the paths it tried.
+        events.emit(
+            "probe",
+            ok=False,
+            message="Nijedan poznati endpoint ne odgovara — detalji su u logu.",
+        )
+        return 1
+
+    events.emit(
+        "probe",
+        ok=True,
+        endpoint=arbeitsagentur._search_url or "",
+        total=payload.get("maxErgebnisse"),
+    )
+    return 0
+
+
 def run(config: dict, events: _EventWriter) -> int:
+    if config.get("mode") == "probe":
+        try:
+            return _probe(config, events)
+        except Exception as exc:
+            events.emit("error", message=f"{type(exc).__name__}: {exc}", traceback=traceback.format_exc())
+            return 1
+
     targets = config.get("targets") or [{}]
+    # First line of every run, so a pasted log always says which build wrote it.
+    events.emit("log", line=f"[gui] Skrejper {paths.version_string()}")
     events.emit("start", source=config.get("source"), targets=len(targets))
 
     results = []

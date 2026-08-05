@@ -178,7 +178,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             f"O aplikaciji {APP_NAME}",
-            f"<b>{APP_NAME}</b><br><br>"
+            f"<b>{APP_NAME}</b> {paths.version_string()}<br><br>"
             "Lokalni skrejper oglasa za HZZ i Arbeitsagentur.<br>"
             "Radi bez servera i baze — sve ostaje na ovom računalu.<br><br>"
             f"Podaci aplikacije:<br><code>{paths.app_data_dir()}</code>",

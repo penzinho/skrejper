@@ -44,7 +44,13 @@ a = Analysis(
     pathex=[str(ROOT)],
     binaries=playwright_binaries,
     datas=datas,
-    hiddenimports=playwright_hidden + ["openpyxl", "app.desktop.runner", "app.desktop.browsers"],
+    # build_info is written by CI and imported inside a try/except, which static
+    # analysis does not see; it simply does not exist in a source checkout.
+    hiddenimports=(
+        playwright_hidden
+        + ["openpyxl", "app.desktop.runner", "app.desktop.browsers"]
+        + (["app.desktop.build_info"] if (ROOT / "app/desktop/build_info.py").exists() else [])
+    ),
     hookspath=[],
     runtime_hooks=[],
     excludes=EXCLUDES,

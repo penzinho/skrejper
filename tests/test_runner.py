@@ -189,6 +189,88 @@ class ArbeitsagenturRunTests(RunnerTestCase):
         self.assertTrue(Path(target["xlsx"]).exists())
 
 
+class VersionStampTests(RunnerTestCase):
+    def test_every_run_starts_by_naming_the_build(self):
+        # Without this a pasted log cannot be attributed to a binary, which is
+        # how a fixed bug gets reported again from a stale build.
+        with mock.patch("app.scrapers.arbeitsagentur.scrape_arbeitsagentur", lambda **k: []):
+            runner.run(self.config(), self.events)
+
+        first = self.emitted()[0]
+        self.assertEqual(first["event"], "log")
+        self.assertIn("Skrejper", first["line"])
+        self.assertIn(runner.paths.version_string(), first["line"])
+
+
+class ProbeTests(RunnerTestCase):
+    """The "Provjeri vezu" button: one request, a definite answer."""
+
+    def setUp(self):
+        super().setUp()
+        from app.scrapers import arbeitsagentur
+
+        self.aa = arbeitsagentur
+        arbeitsagentur._search_url = None
+        self.addCleanup(setattr, arbeitsagentur, "_search_url", None)
+
+    def probe_config(self, **overrides):
+        config = {"source": "arbeitsagentur", "mode": "probe"}
+        config.update(overrides)
+        return config
+
+    def test_reports_the_live_endpoint_and_result_count(self):
+        payload = {"stellenangebote": [], "maxErgebnisse": 4321}
+        with mock.patch.object(self.aa, "_search_json", return_value=payload):
+            self.aa._search_url = f"{self.aa.API_BASE}/pc/v6/jobs"
+            self.assertEqual(runner.run(self.probe_config(), self.events), 0)
+
+        probe = self.events_of("probe")[0]
+        self.assertTrue(probe["ok"])
+        self.assertEqual(probe["total"], 4321)
+        self.assertIn("/pc/v6/jobs", probe["endpoint"])
+
+    def test_reports_failure_without_writing_any_files(self):
+        with mock.patch.object(self.aa, "_search_json", return_value=None):
+            self.assertEqual(runner.run(self.probe_config(), self.events), 1)
+
+        probe = self.events_of("probe")[0]
+        self.assertFalse(probe["ok"])
+        self.assertIn("endpoint", probe["message"])
+        self.assertFalse(self.output.exists(), "a probe must not create output files")
+
+    def test_makes_exactly_one_request(self):
+        calls = []
+
+        def once(*args, **kwargs):
+            calls.append(args)
+            return {"maxErgebnisse": 1}
+
+        with mock.patch.object(self.aa, "_search_json", once):
+            runner.run(self.probe_config(), self.events)
+
+        self.assertEqual(len(calls), 1)
+
+    def test_passes_the_keyword_through(self):
+        seen = {}
+
+        def capture(berufsfeld, keyword, *rest):
+            seen["berufsfeld"] = berufsfeld
+            seen["keyword"] = keyword
+            return {"maxErgebnisse": 0}
+
+        with mock.patch.object(self.aa, "_search_json", capture):
+            runner.run(self.probe_config(keyword="Schweisser"), self.events)
+
+        self.assertIsNone(seen["berufsfeld"])
+        self.assertEqual(seen["keyword"], "Schweisser")
+
+    def test_an_unexpected_failure_is_reported_as_an_error(self):
+        with mock.patch.object(self.aa, "_search_json", side_effect=RuntimeError("boom")):
+            self.assertEqual(runner.run(self.probe_config(), self.events), 1)
+
+        self.assertIn("boom", self.events_of("error")[0]["message"])
+
+
 class HzzRunTests(RunnerTestCase):
     def hzz_config(self, **overrides):
         config = self.config(

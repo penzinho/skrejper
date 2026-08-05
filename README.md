@@ -88,7 +88,8 @@ Buildovi nastaju na GitHub Actionsu (`.github/workflows/desktop-build.yml`) za m
 (Apple Silicon) i Windows:
 
 - **svaki push** u `main`, `openclaw` ili `claude/**` → dva zipa kao artifact u Actions tabu
-  (čuvaju se 30 dana)
+  (čuvaju se 30 dana); artifact se šalje s `archive: false`, pa se raspakirava **jednom** —
+  bez toga `upload-artifact` zapakira naš zip u još jedan zip
 - **tag `v*`** (npr. `git tag v1.0.0 && git push origin v1.0.0`) → isto to, plus GitHub Release
 
 `Skrejper-macOS-arm64` radi samo na Apple Siliconu (M1 i noviji). Ako ikad zatreba i za stariji

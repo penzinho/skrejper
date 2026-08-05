@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -48,6 +49,41 @@ class ArbeitsagenturTab(BaseScrapeTab):
     def __init__(self, parent=None) -> None:
         self._categories = get_arbeitsagentur_categories()
         super().__init__(parent)
+
+        # A full run takes minutes before it can tell you the board is
+        # unreachable; this answers the same question with one request.
+        self.probe_button = QPushButton("Provjeri vezu")
+        self.probe_button.setToolTip(
+            "Jedan upit prema Arbeitsagenturu — javlja radi li veza i koji je endpoint živ."
+        )
+        self.button_row.insertWidget(2, self.probe_button)
+        self.probe_button.clicked.connect(self._probe)
+        self._process.probed.connect(self._on_probed)
+        self._process.finished.connect(lambda: self.probe_button.setEnabled(True))
+
+    def _probe(self) -> None:
+        if self._process.running:
+            return
+        self.console.clear()
+        self.probe_button.setEnabled(False)
+        self.start_button.setEnabled(False)
+        self.status_label.setText("Provjeravam vezu…")
+        self._process.start(
+            {
+                "source": "arbeitsagentur",
+                "mode": "probe",
+                "keyword": self.keyword.text().strip() or None,
+            }
+        )
+
+    def _on_probed(self, event: dict) -> None:
+        if event.get("ok"):
+            endpoint = (event.get("endpoint") or "").rsplit("/jobsuche-service", 1)[-1]
+            total = event.get("total")
+            found = f", {total} oglasa" if total is not None else ""
+            self.status_label.setText(f"Veza radi — endpoint {endpoint}{found}.")
+        else:
+            self.status_label.setText(event.get("message") or "Veza ne radi.")
 
     def build_form(self) -> QWidget:
         container = QWidget()

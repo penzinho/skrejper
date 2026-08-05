@@ -11,6 +11,25 @@ from pathlib import Path
 
 APP_NAME = "Skrejper"
 ORG_NAME = "Protalent"
+APP_VERSION = "1.0.0"
+
+
+def build_sha() -> str:
+    """Short git sha of the build, or "dev" when running from source.
+
+    CI writes app/desktop/build_info.py before packaging. Without this there is
+    no way to tell which build produced a log, which is exactly how a fixed bug
+    gets reported again from a stale binary.
+    """
+    try:
+        from app.desktop.build_info import BUILD_SHA
+    except ImportError:
+        return "dev"
+    return str(BUILD_SHA)
+
+
+def version_string() -> str:
+    return f"{APP_VERSION} ({build_sha()})"
 
 
 def is_frozen() -> bool:

@@ -33,6 +33,7 @@ class ScrapeProcess(QObject):
     targetStarted = Signal(int, int, str)
     targetDone = Signal(dict)
     succeeded = Signal(dict)
+    probed = Signal(dict)
     stopping = Signal()
     cancelled = Signal(dict)
     failed = Signal(str, str)
@@ -162,6 +163,9 @@ class ScrapeProcess(QObject):
             )
         elif kind == "target_done":
             self.targetDone.emit(event)
+        elif kind == "probe":
+            self._saw_terminal_event = True
+            self.probed.emit(event)
         elif kind == "done":
             self._saw_terminal_event = True
             self.succeeded.emit(event)

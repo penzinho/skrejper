@@ -139,7 +139,8 @@ class BaseScrapeTab(QWidget):
         output_row.addWidget(self.browse_button)
         actions.addLayout(output_row)
 
-        button_row = QHBoxLayout()
+        # Exposed so a tab can slot in its own action (see the Arbeitsagentur probe).
+        self.button_row = button_row = QHBoxLayout()
         button_row.setSpacing(8)
         self.start_button = QPushButton("Pokreni skrejpanje")
         self.start_button.setObjectName("primary")

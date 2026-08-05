@@ -84,6 +84,10 @@ jobs:
           python packaging/make_icons.py --platform
           python -c "import sys; from pathlib import Path; name = 'icon.icns' if sys.platform == 'darwin' else 'icon.ico'; p = Path('app/desktop/resources') / name; sys.exit(f'missing {p}') if not p.exists() else print(f'{p} ok ({p.stat().st_size} bytes)')"
 
+      - name: Stamp the build
+        # So a log pasted into a bug report says which binary produced it.
+        run: python -c "import pathlib, os; pathlib.Path('app/desktop/build_info.py').write_text('BUILD_SHA = ' + repr(os.environ['GITHUB_SHA'][:7]) + chr(10), encoding='utf-8')"
+
       - name: Build app
         run: pyinstaller packaging/skrejper.spec --noconfirm
 
@@ -110,7 +114,15 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.asset }}
+          # upload-artifact zips whatever it is given, and it is given a zip —
+          # which is why downloads came out as a zip inside a zip. `archive:
+          # false` uploads the file as-is (single file only, and the artifact
+          # takes the file's name, so `name` would be ignored).
+          #
+          # The zip itself stays ours: a Release asset has to be one file, and
+          # the .app only survives `ditto` — upload-artifact's own zipping drops
+          # symlinks and the executable bit and breaks the bundle.
+          archive: false
           path: ${{ matrix.asset }}.zip
           retention-days: 30
 
