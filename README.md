@@ -193,10 +193,18 @@ U desktop aplikaciji isto radi stranica **Leadovi BiH/RS** u lijevom meniju;
 baza se između računala sinkronizira kroz postojeći Google Drive sync (kao
 NDJSON dump po računalu, spajanje je unija — binarni .db file se ne šalje).
 
-Trenutni izvori: **Klix Posao** (direktorij poslodavaca daje JIB, adresu, web
-i kompletnu povijest oglasa — temelj bodovanja). Sljedeće faze: MojPosao.ba,
-BoljiPosao.com, LakoDoPosla, Posao.rs, NSZ; iza defaultno isključenih flagova
-Infostud (uvjeti korištenja), FZZZ i direktni ZZZ RS.
+Trenutni izvori:
+
+| Izvor | Država | Kako |
+|---|---|---|
+| **Klix Posao** (`posao.klix.ba`) | BiH | direktorij poslodavaca (JIB, PDV, adresa, web, kompletna povijest oglasa) + `/oglasi` |
+| **MojPosao.ba** (`mojposao.ba`) | BiH | vlastiti JSON search API (UUID-ovi, samo aktivni oglasi → povijest se akumulira) |
+| **Lako do posla** (`lakodoposla.com`) | Srbija | REST API koji vraća **PIB, adresu, telefon, web i email poslodavca inline** — nula enrichmenta |
+| **Poslovi.rs** (`poslovi.rs`) | Srbija | server-rendered, popis oglasa iz `sitemap.xml`, naziv+grad iz oglasa |
+
+Sljedeće: NSZ (Srbija). Iza defaultno isključenih flagova: Infostud (uvjeti
+korištenja), FZZZ i direktni ZZZ RS. BoljiPosao.com servira prazan HTML shell
+običnom HTTP klijentu (render samo kroz JS) pa treba headless — odgođeno.
 
 Pravila pristojnosti: pošten User-Agent s kontaktom (`SKREJPER_CONTACT`,
 zadano `app@protalent.hr`), pauza između zahtjeva po hostu (`LEADGEN_DELAY_S`,

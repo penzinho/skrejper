@@ -18,8 +18,9 @@ from importlib import import_module
 _SOURCE_MODULES = {
     "klix": "app.leadgen.sources.klix",
     "mojposao_ba": "app.leadgen.sources.mojposao_ba",
-    # Faza 2 (ostatak): "boljiposao" (prazan HTML shell — treba headless),
-    #                   "lakodoposla", "posao_rs", "nsz"
+    "lakodoposla": "app.leadgen.sources.lakodoposla",
+    "poslovi_rs": "app.leadgen.sources.poslovi_rs",
+    # Faza 2 (ostatak): "nsz"; "boljiposao" je prazan HTML shell — treba headless
     # Faza 3 (iza flaga): "infostud", "fzzz", "zzzrs"
 }
 

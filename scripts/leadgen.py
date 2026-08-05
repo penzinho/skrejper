@@ -34,11 +34,20 @@ from app.leadgen.http import Http
 
 OUTPUT_DIR = PROJECT_ROOT / "output"
 
-# Pages saved by fetch-fixtures, used by tests/test_leadgen_klix_parser.py.
+# Pages saved by fetch-fixtures, used by the parser tests.
 FIXTURES = {
     "klix": [
         ("https://posao.klix.ba/poslodavci", "poslodavci-list.html"),
         ("https://posao.klix.ba/oglasi", "oglasi-list.html"),
+    ],
+    "mojposao_ba": [
+        ("https://www.mojposao.ba/api/proxy/jobs/search?page=1", "search-p1.json"),
+    ],
+    "lakodoposla": [
+        ("https://prod.lakodoposla.net/api/postings?page=1", "postings-p1.json"),
+    ],
+    "poslovi_rs": [
+        ("https://www.poslovi.rs/sitemap.xml", "sitemap-sample.xml"),
     ],
 }
 
