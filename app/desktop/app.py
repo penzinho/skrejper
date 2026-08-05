@@ -1,12 +1,15 @@
 """Application window: a navigation rail on the left, one page per source."""
 
 import sys
+import threading
 
-from PySide6.QtCore import QSettings, QSize, Qt, QUrl
+from PySide6.QtCore import QSettings, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QDesktopServices, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QInputDialog,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
@@ -60,6 +63,10 @@ def app_icon() -> QIcon | None:
 
 
 class MainWindow(QMainWindow):
+    # Emitted from worker threads; the queued connection lands it on the GUI
+    # thread, so the status bar can be updated safely.
+    drive_status = Signal(str)
+
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(APP_NAME)
@@ -88,6 +95,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self._build_menu()
         self._restore_geometry()
+
+        self.drive_status.connect(lambda line: self.statusBar().showMessage(line, 15000))
+        # Pick up what other computers scraped before this one starts, and push
+        # this computer's additions after every finished run.
+        for tab in (self.hzz_tab, self.arbeitsagentur_tab):
+            tab._process.finished.connect(self._drive_auto_sync)
+        QTimer.singleShot(1500, self._drive_auto_sync)
 
     def _build_rail(self) -> QWidget:
         rail = QWidget()
@@ -162,11 +176,100 @@ class MainWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
 
+        drive_menu = self.menuBar().addMenu("&Google Drive")
+        connect_action = QAction("Poveži Google račun…", self)
+        connect_action.triggered.connect(self._drive_connect)
+        drive_menu.addAction(connect_action)
+        sync_action = QAction("Sinkroniziraj sada", self)
+        sync_action.triggered.connect(self._drive_sync_now)
+        drive_menu.addAction(sync_action)
+        drive_menu.addSeparator()
+        disconnect_action = QAction("Odspoji", self)
+        disconnect_action.triggered.connect(self._drive_disconnect)
+        drive_menu.addAction(disconnect_action)
+
         help_menu = self.menuBar().addMenu("&Pomoć")
         about = QAction(f"O aplikaciji {APP_NAME}", self)
         about.setMenuRole(QAction.AboutRole)
         about.triggered.connect(self._about)
         help_menu.addAction(about)
+
+    # ---- Google Drive sync ----------------------------------------------
+    #
+    # Seen-id files sync through the hidden appDataFolder of the user's own
+    # Google account (see app/drive_sync.py for why not a service account).
+    # All network work runs in plain threads; results come back over the
+    # drive_status signal.
+
+    def _drive_connect(self) -> None:
+        from app import drive_sync
+
+        store = QSettings(ORG_NAME, APP_NAME)
+        client_id, ok = QInputDialog.getText(
+            self,
+            "Google Drive",
+            "OAuth Client ID (Google Cloud Console → Credentials,\n"
+            "tip \"Desktop app\", uz uključen Google Drive API):",
+            QLineEdit.Normal,
+            str(store.value("drive/client_id", "")),
+        )
+        if not ok or not client_id.strip():
+            return
+        client_secret, ok = QInputDialog.getText(
+            self,
+            "Google Drive",
+            "OAuth Client secret:",
+            QLineEdit.Normal,
+            str(store.value("drive/client_secret", "")),
+        )
+        if not ok or not client_secret.strip():
+            return
+        store.setValue("drive/client_id", client_id.strip())
+        store.setValue("drive/client_secret", client_secret.strip())
+
+        def run():
+            try:
+                drive_sync.connect(client_id.strip(), client_secret.strip())
+                self.drive_status.emit("[drive] Povezano — sinkroniziram…")
+                drive_sync.sync(log=self.drive_status.emit)
+                self.drive_status.emit("[drive] Google Drive spojen i usklađen.")
+            except Exception as exc:
+                self.drive_status.emit(f"[drive] Povezivanje nije uspjelo: {exc}")
+
+        self.drive_status.emit("[drive] Otvaram Google prijavu u pregledniku…")
+        threading.Thread(target=run, daemon=True).start()
+
+    def _drive_sync_now(self) -> None:
+        from app import drive_sync
+
+        if not drive_sync.is_connected():
+            QMessageBox.information(
+                self,
+                "Google Drive",
+                "Google račun još nije povezan — odaberi „Poveži Google račun”.",
+            )
+            return
+        self._drive_auto_sync()
+
+    def _drive_auto_sync(self) -> None:
+        from app import drive_sync
+
+        if not drive_sync.is_connected():
+            return
+
+        def run():
+            try:
+                drive_sync.sync(log=self.drive_status.emit)
+            except Exception as exc:
+                self.drive_status.emit(f"[drive] Sinkronizacija nije uspjela: {exc}")
+
+        threading.Thread(target=run, daemon=True).start()
+
+    def _drive_disconnect(self) -> None:
+        from app import drive_sync
+
+        drive_sync.disconnect()
+        self.statusBar().showMessage("[drive] Odspojeno — lokalni podaci ostaju.", 10000)
 
     def _open_output(self) -> None:
         current = self.pages.currentWidget()

@@ -140,6 +140,32 @@ pyinstaller packaging/skrejper.spec --noconfirm
 
 Obje putanje se mogu pregaziti kroz `SKREJPER_STATE_DIR` i `PLAYWRIGHT_BROWSERS_PATH`.
 
+### Sinkronizacija „već viđenog” preko Google Drivea
+
+Da laptop i desktop preskaču iste oglase, aplikacija zna sinkronizirati
+`seen-*.txt` datoteke kroz skriveni programski prostor tvog Google Drivea
+(appDataFolder — ne vidi se među tvojim datotekama na Driveu). Sinkronizira se
+automatski pri pokretanju i nakon svakog završenog skrejpanja, a ručno kroz
+izbornik **Google Drive → Sinkroniziraj sada**. Spajanje je unija — nema
+konflikata, redoslijed računala nije bitan.
+
+Jednokratna priprema (5 minuta, vrijedi za sva računala):
+
+1. Na [console.cloud.google.com](https://console.cloud.google.com) napravi
+   projekt (bilo koje ime) i u **APIs & Services → Library** uključi
+   **Google Drive API**.
+2. U **APIs & Services → OAuth consent screen** odaberi vanjski (External) tip,
+   upiši ime aplikacije i sebe dodaj pod Test users.
+3. U **APIs & Services → Credentials → Create credentials → OAuth client ID**
+   odaberi tip **Desktop app**. Zapiši Client ID i Client secret.
+4. U aplikaciji: **Google Drive → Poveži Google račun…**, zalijepi oboje i
+   potvrdi prijavu u pregledniku koji se otvori. Ponovi 4. korak na svakom
+   računalu — isti Client ID/secret, isti Google račun.
+
+Napomena: service account ovdje namjerno ne koristimo — od Googleove promjene
+2025. service accounti nemaju vlastitu kvotu pa im upload na običnom
+@gmail.com računu ne prolazi.
+
 ---
 
 ## Skripte i agent (server)
