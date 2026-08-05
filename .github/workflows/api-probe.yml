@@ -39,12 +39,17 @@ jobs:
           B="https://rest.arbeitsagentur.de/jobboerse/jobsuche-service"
           BF="berufsfeld=Biologie"
 
-          probe "v6 berufsfeld size=1  (probe path)"      "$B/pc/v6/jobs?page=1&size=1&$BF"
-          probe "v6 berufsfeld size=100 (scrape path)"    "$B/pc/v6/jobs?page=1&size=100&$BF"
-          probe "v6 berufsfeld size=50"                   "$B/pc/v6/jobs?page=1&size=50&$BF"
-          probe "v6 berufsfeld size=25"                   "$B/pc/v6/jobs?page=1&size=25&$BF"
-          probe "v6 berufsfeld size=100 page=0"           "$B/pc/v6/jobs?page=0&size=100&$BF"
-          probe "v6 was=Biologie size=100 (fallback)"     "$B/pc/v6/jobs?page=1&size=100&was=Biologie"
-          probe "v6 unfiltered size=100"                  "$B/pc/v6/jobs?page=1&size=100"
-          probe "v6 berufsfeld+wo size=100"               "$B/pc/v6/jobs?page=1&size=100&$BF&wo=M%C3%BCnchen&umkreis=25"
-          probe "v4/app berufsfeld size=100"              "$B/pc/v4/app/jobs?page=1&size=100&$BF"
+          echo "===== v6 ergebnisliste first two items"
+          resp=$(curl -sS --max-time 30 \
+            -H "X-API-Key: jobboerse-jobsuche" -H "Accept: application/json" \
+            "$B/pc/v6/jobs?page=1&size=2&$BF")
+          jq '.ergebnisliste[:2]' <<<"$resp"
+
+          refnr=$(jq -r '.ergebnisliste[0].refnr // empty' <<<"$resp")
+          echo "===== refnr: $refnr"
+          if [ -n "$refnr" ]; then
+            enc=$(printf %s "$refnr" | base64 -w0)
+            probe "v4 jobdetails"  "$B/pc/v4/jobdetails/$enc"
+            probe "v3 jobdetails"  "$B/pc/v3/jobdetails/$enc"
+            probe "v6 jobdetails"  "$B/pc/v6/jobdetails/$enc"
+          fi
