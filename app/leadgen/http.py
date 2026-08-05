@@ -132,6 +132,9 @@ class Http:
             try:
                 response = self._session.get(url, timeout=self.timeout_s, allow_redirects=True)
                 self.requests_made += 1
+            except requests.TooManyRedirects as exc:
+                # A redirect loop is not transient; retrying just burns delay.
+                raise FetchError(url, None, f"Redirect petlja: {url}") from exc
             except requests.RequestException as exc:
                 last_error = exc
                 self.log(f"[{self.source}] {url}: {type(exc).__name__}, pokušaj {attempt}/{attempts}")

@@ -159,6 +159,9 @@ class RealFixtureTest(unittest.TestCase):
         self.assertEqual(employer["vat_id"], "218266690002")
         self.assertEqual(employer["city"], "Žepče")
         self.assertEqual(employer["website"], "https://dominvest.ba/")
+        # The only address on a Klix page is the platform footer
+        # (posao@klix.ba), never the employer's — so no e-mail is stored.
+        self.assertEqual(employer["email"], "")
         self.assertEqual(postings, [])
 
     def test_employer_with_history(self):

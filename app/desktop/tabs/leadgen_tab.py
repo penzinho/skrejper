@@ -27,6 +27,7 @@ DEFAULTS = {
     "max_pages": 0,          # 0 = bez limita
     "full": False,
     "fetch_details": False,
+    "enrich": True,
     "include_public_sector": False,
     "min_ads_24m": 2,
     "write_xlsx": True,
@@ -96,6 +97,14 @@ class LeadgenTab(BaseScrapeTab):
             "rade i bez toga."
         )
         options_form.addRow(self.fetch_details)
+
+        self.enrich = QCheckBox("Obogati kontakte (Klix-lookup, web→email)")
+        self.enrich.setToolTip(
+            "Za firme bez kontakta: naslijedi JIB/adresu/web iz Klix baze, pa "
+            "izvuci e-mail s web stranice firme. Pretvara samo-naziv u metu za "
+            "cold mail."
+        )
+        options_form.addRow(self.enrich)
         right.addWidget(options)
 
         export_box = QGroupBox("Izvoz leadova")
@@ -124,6 +133,7 @@ class LeadgenTab(BaseScrapeTab):
             "max_pages": self.max_pages.value() or None,
             "full": self.full.isChecked(),
             "fetch_details": self.fetch_details.isChecked(),
+            "enrich": self.enrich.isChecked(),
             "include_public_sector": self.include_public_sector.isChecked(),
             "min_ads_24m": self.min_ads.value(),
             "write_xlsx": self.write_xlsx.isChecked(),
@@ -166,6 +176,7 @@ class LeadgenTab(BaseScrapeTab):
         self.max_pages.setValue(values["max_pages"])
         self.full.setChecked(values["full"])
         self.fetch_details.setChecked(values["fetch_details"])
+        self.enrich.setChecked(values["enrich"])
         self.include_public_sector.setChecked(values["include_public_sector"])
         self.min_ads.setValue(values["min_ads_24m"])
         self.write_xlsx.setChecked(values["write_xlsx"])
@@ -178,6 +189,7 @@ class LeadgenTab(BaseScrapeTab):
             "max_pages": self.max_pages.value(),
             "full": self.full.isChecked(),
             "fetch_details": self.fetch_details.isChecked(),
+            "enrich": self.enrich.isChecked(),
             "include_public_sector": self.include_public_sector.isChecked(),
             "min_ads_24m": self.min_ads.value(),
             "write_xlsx": self.write_xlsx.isChecked(),

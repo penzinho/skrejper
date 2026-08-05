@@ -103,6 +103,22 @@ def cmd_dedupe(args) -> int:
     return 0
 
 
+def cmd_enrich(args) -> int:
+    from app.leadgen.enrich import enrich
+
+    with LeadDb() as db:
+        http = Http("enrich", log=lambda line: print(line, flush=True))
+        stats = enrich(
+            db, http,
+            do_klix=not args.no_klix,
+            do_website_email=not args.no_website_email,
+            limit=args.limit,
+            on_event=_print_event,
+        )
+        print(f"Obogaćivanje: {stats}")
+    return 0
+
+
 def cmd_export(args) -> int:
     from app.leadgen.export import export_leads
 
@@ -123,6 +139,8 @@ def cmd_run(args) -> int:
     code = cmd_scrape(args)
     if code:
         return code
+    if getattr(args, "enrich", False):
+        cmd_enrich(args)
     cmd_score(args)
     cmd_dedupe(args)
     return cmd_export(args)
@@ -206,6 +224,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("score", help="izračunaj frequency scoring")
     sub.add_parser("dedupe", help="upari poslodavce preko izvora")
 
+    enrich = sub.add_parser("enrich", help="obogati firme bez kontakta (Klix-lookup, web→email)")
+    for p in (enrich, run):
+        p.add_argument("--no-klix", action="store_true", help="preskoči Klix cross-fill")
+        p.add_argument("--no-website-email", action="store_true", help="preskoči web→email")
+        p.add_argument("--limit", type=int, default=None, help="obogati najviše N firmi (proba)")
+    run.add_argument("--enrich", action="store_true", help="uključi enrichment korak u run")
+
     export = sub.add_parser("export", help="izvezi rangirane leadove u CSV/XLSX")
     for p in (export, run):
         p.add_argument("--out", default=str(OUTPUT_DIR), help="mapa za izvoz")
@@ -225,8 +250,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     handlers = {
         "scrape": cmd_scrape, "run": cmd_run, "score": cmd_score, "dedupe": cmd_dedupe,
-        "export": cmd_export, "import-csv": cmd_import_csv, "sync-drive": cmd_sync_drive,
-        "stats": cmd_stats, "fetch-fixtures": cmd_fetch_fixtures,
+        "enrich": cmd_enrich, "export": cmd_export, "import-csv": cmd_import_csv,
+        "sync-drive": cmd_sync_drive, "stats": cmd_stats, "fetch-fixtures": cmd_fetch_fixtures,
     }
     return handlers[args.command](args)
 

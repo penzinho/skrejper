@@ -169,7 +169,10 @@ def parse_employer_page(html: str, url: str) -> tuple[dict, list[dict]]:
         city=city,
         country=COUNTRY,
         website=website,
-        email=extract_email(html),
+        # No e-mail: Klix routes applications through the portal, so the only
+        # address on the page is the platform's own footer contact
+        # (posao@klix.ba), never the employer's. The website (above) is the
+        # real handle; the enrichment stage derives an e-mail from it.
         detail_url=url,
         public_sector_term=public_sector_term(name or legal_name),
     )

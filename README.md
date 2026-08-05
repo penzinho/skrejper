@@ -181,13 +181,26 @@ Faze pipelinea (svaka se pokreće zasebno):
 
 ```bash
 python scripts/leadgen.py scrape            # izvori → baza (inkrementalno)
+python scripts/leadgen.py enrich            # firme bez kontakta: Klix-lookup + web→email
 python scripts/leadgen.py score             # bodovanje: oglasi u 24 mj., ponavljanja pozicija…
 python scripts/leadgen.py dedupe            # ista firma preko izvora (JIB/PIB, pa fuzzy naziv+grad)
 python scripts/leadgen.py export --min-ads 2  # rangirani leadovi → CSV/XLSX
-python scripts/leadgen.py run               # sve četiri faze zaredom (za cron)
+python scripts/leadgen.py run --enrich      # sve faze zaredom (za cron)
 python scripts/leadgen.py import-csv output/*.csv   # postojeći HZZ/AA CSV-ovi u istu bazu
 python scripts/leadgen.py stats
 ```
+
+**Enrichment** (`enrich`) je zaseban, opcionalan korak — nikad inline u
+skreperu. Ključna je razlika u odnosu na HZZ/NSZ (gdje je kontakt u oglasu):
+na privatnim portalima dobiješ samo naziv firme. Redom, od jeftinijeg prema
+skupljem: (1) **Klix cross-fill** — firma s drugog BiH izvora bez JIB-a naslijedi
+JIB/adresu/web iz lokalne Klix baze, bez mreže; (2) **web→email** — firma s web
+stranicom bez emaila: dohvati se početna i kontakt stranica pa izvuče `mailto:`
+ili adresa (ovo pretvara „samo naziv" u metu za cold mail); (3) **registarski
+lookup** (APR za RS, sudski registri za BiH) je pluggable interface s praznim
+defaultom — ti su izvori form-based, često iza captche, a `pretraga.apr.gov.rs`
+trenutno servira nepotpun TLS lanac, pa degradira bez pada umjesto da bude
+tvrda ovisnost.
 
 U desktop aplikaciji isto radi stranica **Leadovi BiH/RS** u lijevom meniju;
 baza se između računala sinkronizira kroz postojeći Google Drive sync (kao

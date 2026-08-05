@@ -82,8 +82,21 @@ def run(config: dict, events) -> int:
                 stats=dict(stats_total),
             )
 
-        # Scoring + dedupe + export always run, also after a Stop — whatever is
-        # in the database is worth a fresh leads file.
+        # Optional enrichment, then scoring + dedupe + export always run, also
+        # after a Stop — whatever is in the database is worth a fresh leads file.
+        if config.get("enrich") and not cancelled:
+            try:
+                from app.leadgen.enrich import enrich
+
+                http = Http("enrich", log=lambda line: events.emit("log", line=line))
+                enrich_stats = enrich(
+                    db, http,
+                    on_event=lambda kind, *a: events.emit("log", line=a[0]) if kind == "log" else None,
+                )
+                events.emit("log", line=f"[leadgen] Obogaćivanje: {enrich_stats}")
+            except KeyboardInterrupt:
+                cancelled = True
+
         events.emit("target_start", index=total, total=total, label="Bodovanje i izvoz leadova")
         try:
             from app.leadgen.dedupe import dedupe_employers
