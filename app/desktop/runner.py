@@ -226,6 +226,7 @@ def _scrape_arbeitsagentur_target(config: dict, target: dict, on_job, skip_ids: 
     options = config.get("options", {})
     scrape_arbeitsagentur(
         category=target.get("category") or None,
+        berufsfelder=target.get("berufsfelder") or None,
         max_pages=int(options.get("max_pages") or 1),
         results_per_page=int(options.get("results_per_page") or 100),
         company_limit=options.get("company_limit") or None,

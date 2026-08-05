@@ -243,6 +243,157 @@ BERUFSFELDER = (
     'Überwachung, Wartung Verkehrsinfrastruktur',
 )
 
+# Croatian display names for the German Berufsfeld values above — GUI text
+# only. Searches always send the German name; every Berufsfeld must have a
+# translation (verified by tests).
+BERUFSFELD_HR = {
+    'Altenpflege': 'Njega starijih osoba',
+    'Angehörige der regulären Streitkräfte in sonstigen Rängen': 'Vojno osoblje ostalih činova',
+    'Angehörige gesetzgebender Körperschaften': 'Članovi zakonodavnih tijela',
+    'Arzt- und Praxishilfe': 'Pomoćno osoblje u ordinacijama',
+    'Aus- und Trockenbau, Isolierung, Zimmerei, Glaserei': 'Suha gradnja, izolacija, tesarstvo, staklarstvo',
+    'Bau- und Transportgeräteführung': 'Rukovanje građevinskim i transportnim strojevima',
+    'Bauplanung und -überwachung, Architektur': 'Projektiranje i nadzor gradnje, arhitektura',
+    'Berg-, Tagebau und Sprengtechnik': 'Rudarstvo, površinski kopovi i miniranje',
+    'Bestattungswesen': 'Pogrebna djelatnost',
+    'Biologie': 'Biologija',
+    'Bodenverlegung': 'Polaganje podova',
+    'Buch- und Kunstantiquitäten, Musikfachhandel': 'Antikvarijati i prodaja glazbene opreme',
+    'Bühnen- und Kostümbildnerei, Requisite': 'Scenografija, kostimografija, rekviziti',
+    'Büro und Sekretariat': 'Ured i tajništvo',
+    'Chemie': 'Kemija',
+    'Drucktechnik, Buchbinderei': 'Tiskarstvo i knjigoveštvo',
+    'Einkauf und Vertrieb': 'Nabava i prodaja',
+    'Elektrotechnik': 'Elektrotehnika',
+    'Energietechnik': 'Energetika',
+    'Ernährungs- und Gesundheitsberatung': 'Savjetovanje o prehrani i zdravlju',
+    'Erziehung, Sozialarbeit, Heilerziehungspflege': 'Odgoj, socijalni rad, njega osoba s invaliditetom',
+    'Fahr- und Sportunterricht an außerschulischen Bildungseinrichtungen': 'Autoškole i sportska poduka',
+    'Fahrzeug-, Luft-, Raumfahrt- und Schiffbautechnik': 'Tehnika vozila, zrakoplova i brodogradnja',
+    'Fahrzeugführung im Eisenbahnverkehr': 'Upravljanje vlakovima',
+    'Fahrzeugführung im Flugverkehr': 'Piloti i upravljanje zrakoplovima',
+    'Fahrzeugführung im Schiffsverkehr': 'Upravljanje plovilima',
+    'Fahrzeugführung im Straßenverkehr': 'Vozači u cestovnom prometu',
+    'Farb- und Lacktechnik': 'Bojenje i lakiranje',
+    'Feinwerk- und Werkzeugtechnik': 'Precizna mehanika i alatničarstvo',
+    'Fischwirtschaft': 'Ribarstvo',
+    'Floristik': 'Cvjećarstvo',
+    'Forstwirtschaft, Jagdwirtschaft, Landschaftspflege': 'Šumarstvo, lovstvo, njega krajobraza',
+    'Fototechnik und Fotografie': 'Fotografija i fototehnika',
+    'Gartenbau': 'Vrtlarstvo i hortikultura',
+    'Gastronomie': 'Ugostiteljstvo — posluživanje (konobari)',
+    'Gebäudetechnik': 'Tehnika i održavanje zgrada (domari)',
+    'Geisteswissenschaften': 'Humanističke znanosti',
+    'Geologie, Geografie und Meteorologie': 'Geologija, geografija i meteorologija',
+    'Geschäftsführung und Vorstand': 'Uprava i direktori',
+    'Gesellschaftswissenschaften': 'Društvene znanosti',
+    'Getränkeherstellung': 'Proizvodnja pića',
+    'Gewerbe, Gesundheitsaufsicht, Desinfektion': 'Sanitarni nadzor i dezinfekcija',
+    'Handel': 'Trgovina',
+    'Hauswirtschaft und Verbraucherberatung': 'Domaćinstvo i savjetovanje potrošača',
+    'Hochbau': 'Visokogradnja (zidari, fasaderi)',
+    'Holzbe- und -verarbeitung': 'Obrada drva (stolari)',
+    'Hotellerie': 'Hotelijerstvo (recepcija, sobarice)',
+    'Human- und Zahnmedizin': 'Liječnici i stomatolozi',
+    'IT-Netzwerktechnik, -Administration, -Organisation': 'IT mreže i administracija',
+    'IT-Systemanalyse, -Anwendungsberatung und -Vertrieb': 'IT analiza, savjetovanje i prodaja',
+    'Immobilienwirtschaft und Facility-Management': 'Nekretnine i upravljanje objektima',
+    'Industrielle Glasherstellung': 'Industrijska proizvodnja stakla',
+    'Industrielle Keramikherstellung': 'Industrijska proizvodnja keramike',
+    'Informatik': 'Informatika',
+    'Innenarchitektur, Raumausstattung': 'Unutarnje uređenje i opremanje prostora',
+    'Kaufleute - Verkehr und Logistik': 'Komercijalisti u prometu i logistici',
+    'Klempnerei, Sanitär-, Heizungs- und Klimatechnik': 'Vodoinstalacije, grijanje i klimatizacija',
+    'Krankenpflege, Rettungsdienst und Geburtshilfe': 'Medicinske sestre, hitna pomoć i primaljstvo',
+    'Kunsthandwerk und bildende Kunst': 'Umjetnički obrt i likovna umjetnost',
+    'Kunsthandwerkliche Keramik- und Glasgestaltung': 'Umjetnička keramika i staklo',
+    'Kunsthandwerkliche Metallgestaltung': 'Umjetnička obrada metala',
+    'Kunststoff- und Kautschukherstellung': 'Proizvodnja plastike i gume',
+    'Körperpflege': 'Frizeri, kozmetika i njega tijela',
+    'Lagerwirtschaft, Post und Zustellung, Güterumschlag': 'Skladište, pošta i dostava',
+    'Landwirtschaft': 'Poljoprivreda',
+    'Lebensmittel- und Genussmittelherstellung': 'Proizvodnja hrane (pekari, mesari)',
+    'Leder- und Pelzherstellung': 'Proizvodnja kože i krzna',
+    'Lehr- und Forschungstätigkeit an Hochschulen': 'Nastava i istraživanje na fakultetima',
+    'Lehrtätigkeit an allgemeinbildenden Schulen': 'Učitelji i nastavnici u školama',
+    'Lehrtätigkeit an außerschulischen Bildungseinrichtungen': 'Predavači u izvanškolskom obrazovanju',
+    'Lehrtätigkeit berufsbildender Fächer und betriebliche Ausbildung': 'Strukovni nastavnici i mentori',
+    'Maler, Stuckateure, Bautenschutz': 'Soboslikari, žbukeri, zaštita građevina',
+    'Maschinenbau- und Betriebstechnik': 'Strojarstvo i pogonska tehnika',
+    'Mathematik und Statistik': 'Matematika i statistika',
+    'Mechatronik und Automatisierungstechnik': 'Mehatronika i automatizacija',
+    'Medien-, Dokumentations- und Informationsdienste': 'Mediji, dokumentacija i informacijske službe',
+    'Medizin-, Orthopädie- und Rehatechnik': 'Medicinska i ortopedska tehnika',
+    'Medizinisches Laboratorium': 'Medicinski laboratorij',
+    'Metallbau und Schweißtechnik': 'Metalne konstrukcije i zavarivanje',
+    'Metallbearbeitung': 'Obrada metala (CNC, tokari)',
+    'Metallerzeugung': 'Proizvodnja metala (ljevaonice)',
+    'Metalloberflächenbehandlung': 'Površinska obrada metala',
+    'Moderation und Unterhaltung': 'Voditeljstvo i zabava',
+    'Museumstechnik und -management': 'Muzejska tehnika i upravljanje',
+    'Musik-, Gesang-, Dirigententätigkeiten': 'Glazbenici, pjevači, dirigenti',
+    'Musikinstrumentenbau': 'Izrada glazbala',
+    'Naturstein- und Mineralaufbereitung, Baustoffherstellung': 'Kamen, minerali i građevinski materijali',
+    'Nichtärztliche Therapie und Heilkunde': 'Terapeuti (fizioterapija i sl.)',
+    'Objekt-, Personen-, Brandschutz, Arbeitssicherheit': 'Zaštitari, protupožarna zaštita, zaštita na radu',
+    'Offiziere': 'Časnici',
+    'Papier- und Verpackungstechnik': 'Papir i ambalaža',
+    'Personalwesen und -dienstleistung': 'Ljudski resursi (HR)',
+    'Pferdewirtschaft': 'Konjogojstvo',
+    'Pharmazie': 'Farmacija',
+    'Physik': 'Fizika',
+    'Polizei- und Kriminaldienst, Gerichts- und Justizvollzug': 'Policija, sudstvo i zatvorski sustav',
+    'Produkt- und Industriedesign': 'Produktni i industrijski dizajn',
+    'Psychologie, nichtärztliche Psychotherapie': 'Psihologija i psihoterapija',
+    'Rechnungswesen, Controlling und Revision': 'Računovodstvo, kontroling i revizija',
+    'Rechtsberatung, -sprechung und -ordnung': 'Pravno savjetovanje i pravosuđe',
+    'Redaktion und Journalismus': 'Novinarstvo i uredništvo',
+    'Reinigung': 'Čišćenje',
+    'Schauspiel, Tanz und Bewegungskunst': 'Gluma, ples i pokret',
+    'Servicekräfte im Personenverkehr': 'Osoblje u putničkom prometu',
+    'Softwareentwicklung und Programmierung': 'Razvoj softvera i programiranje',
+    'Speisenzubereitung': 'Kuhari i priprema hrane',
+    'Sprach- und Literaturwissenschaften': 'Jezici i književnost',
+    'Steuerberatung': 'Porezno savjetovanje',
+    'Technische Forschung und Entwicklung': 'Tehničko istraživanje i razvoj',
+    'Technische Mediengestaltung': 'Grafičko i medijsko oblikovanje',
+    'Technische Produktionsplanung und -steuerung': 'Planiranje i vođenje proizvodnje',
+    'Technischer Betrieb des Eisenbahn-, Luft- und Schiffsverkehrs': 'Tehničke službe željeznice, zračnog i brodskog prometa',
+    'Technisches Zeichnen, Konstruktion und Modellbau': 'Tehničko crtanje i konstrukcija',
+    'Textiltechnik und -produktion': 'Tekstilna proizvodnja',
+    'Textilverarbeitung': 'Šivanje i prerada tekstila',
+    'Theater-, Film- und Fernsehproduktion': 'Kazališna, filmska i TV produkcija',
+    'Theologie und Gemeindearbeit': 'Teologija i rad u župi',
+    'Tiefbau': 'Niskogradnja (ceste, cjevovodi)',
+    'Tiermedizin und Tierheilkunde': 'Veterina',
+    'Tierpflege': 'Njega životinja',
+    'Tierwirtschaft': 'Stočarstvo',
+    'Tourismus und Sport': 'Turizam i sport',
+    'Umweltmanagement und -beratung': 'Upravljanje okolišem i savjetovanje',
+    'Umweltschutztechnik': 'Tehnika zaštite okoliša',
+    'Unternehmensorganisation und -strategie': 'Organizacija i strategija poduzeća',
+    'Unteroffiziere mit Portepee': 'Dočasnici višeg ranga',
+    'Unteroffiziere ohne Portepee': 'Dočasnici nižeg ranga',
+    'Ver- und Entsorgung': 'Opskrba i zbrinjavanje otpada',
+    'Veranstaltungs-, Kamera-, Tontechnik': 'Tehnika događanja, kamera i ton',
+    'Veranstaltungsservice und -management': 'Organizacija događanja',
+    'Verkauf (ohne Produktspezialisierung)': 'Prodaja — opća (blagajnici, trgovci)',
+    'Verkauf Bekleidung, Elektro, KFZ, Hartwaren': 'Prodaja odjeće, elektronike i vozila',
+    'Verkauf von Lebensmitteln': 'Prodaja hrane (pekarnice, mesnice)',
+    'Verkauf von drogerie- und apothekenüblichen Waren': 'Prodaja u drogerijama i ljekarnama',
+    'Verlags- und Medienwirtschaft': 'Izdavaštvo i medijska industrija',
+    'Vermessung und Kartografie': 'Geodezija i kartografija',
+    'Versicherungs- und Finanzdienstleistungen': 'Osiguranje i financijske usluge',
+    'Verwaltung': 'Uprava i administracija',
+    'Weinbau': 'Vinogradarstvo',
+    'Werbung und Marketing': 'Oglašavanje i marketing',
+    'Wirtschaftswissenschaften': 'Ekonomske znanosti',
+    'Öffentlichkeitsarbeit': 'Odnosi s javnošću (PR)',
+    'Überwachung und Steuerung des Verkehrsbetriebs': 'Nadzor i upravljanje prometom',
+    'Überwachung, Wartung Verkehrsinfrastruktur': 'Održavanje prometne infrastrukture',
+}
+
+
 # Broad, user-facing categories. Each maps to a set of Berufsfelder that are
 # queried (and deduped) together. This is what the input form exposes; the raw
 # Berufsfeld names above are still accepted as free text. Every Berufsfeld
@@ -773,6 +924,7 @@ def scrape_arbeitsagentur(
     listing_limit: int | None = None,
     on_job: Callable[[dict], None] | None = None,
     skip_ids: set[str] | None = None,
+    berufsfelder: list[str] | None = None,
 ) -> list[dict]:
     """Scrape postings from the arbeitsagentur.de job board via its public API.
 
@@ -787,6 +939,9 @@ def scrape_arbeitsagentur(
     * `skip_ids`   -> posting ``refnr``s already scraped on a previous run; these
       are skipped *before* the detail fetch, so an incremental daily run only pays
       for new postings. See `app.seen_store`.
+    * `berufsfelder` -> explicit subset of German Berufsfeld names to query,
+      overriding whatever `category` resolves to. This is how the GUI scrapes a
+      partially-checked group; `category` still supplies the display label.
 
     Returns one dict per posting (e-mail may be empty; the caller filters).
     """
@@ -797,10 +952,13 @@ def scrape_arbeitsagentur(
     detail_delay_ms = int(os.getenv("ARBEITSAGENTUR_DETAIL_DELAY_MS", "300"))
     debug_progress = os.getenv("ARBEITSAGENTUR_DEBUG_PROGRESS", "false") == "true"
 
-    berufsfelder, category_label = _resolve_berufsfelder(category)
+    resolved, category_label = _resolve_berufsfelder(category)
+    if berufsfelder:
+        resolved = list(berufsfelder)
+        category_label = category_label or ", ".join(berufsfelder)
     # A keyword/board-wide sweep has no Berufsfeld filter; represent it as one
     # query with berufsfeld=None.
-    queries: list[str | None] = berufsfelder or [None]
+    queries: list[str | None] = resolved or [None]
 
     jobs: list[dict] = []
     seen_refnrs: set[str] = set()

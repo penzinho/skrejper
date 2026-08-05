@@ -314,6 +314,48 @@ class V6ResponseShapeTests(EndpointTestCase):
         self.assertEqual(aa._listing_location({"stellenlokationen": []}), "")
 
 
+class SubsetAndTranslationTests(EndpointTestCase):
+    def test_every_berufsfeld_has_a_croatian_label(self):
+        missing = [name for name in aa.BERUFSFELDER if name not in aa.BERUFSFELD_HR]
+        self.assertEqual(missing, [], "each Berufsfeld needs a Croatian display name")
+        stale = [name for name in aa.BERUFSFELD_HR if name not in aa.BERUFSFELDER]
+        self.assertEqual(stale, [], "translations for Berufsfelder that no longer exist")
+
+    def test_an_explicit_subset_overrides_the_group(self):
+        aa._search_url = f"{aa.API_BASE}/pc/v6/jobs"
+        queried = []
+
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout):
+            queried.append(berufsfeld)
+            return {"stellenangebote": [], "maxErgebnisse": 0}
+
+        with mock.patch.object(aa, "_search_json", fake_search):
+            aa.scrape_arbeitsagentur(
+                category="gastronomie_tourismus",
+                berufsfelder=["Gastronomie", "Speisenzubereitung"],
+                max_pages=1,
+                keyword="x",  # suppresses the was= fallback noise
+            )
+
+        self.assertEqual(queried, ["Gastronomie", "Speisenzubereitung"])
+
+    def test_a_subset_keeps_the_group_label_on_rows(self):
+        aa._search_url = f"{aa.API_BASE}/pc/v6/jobs"
+        listing = {"refnr": "R-1", "titel": "Kellner", "arbeitgeber": "Gasthaus"}
+
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout):
+            return {"stellenangebote": [listing], "maxErgebnisse": 1}
+
+        with mock.patch.object(aa, "_search_json", fake_search), mock.patch.object(
+            aa, "_detail_json", return_value=DETAIL_PAYLOAD
+        ):
+            jobs = aa.scrape_arbeitsagentur(
+                category="gastronomie_tourismus", berufsfelder=["Gastronomie"], max_pages=1
+            )
+
+        self.assertEqual(jobs[0]["category"], "Gastronomija, hotelijerstvo i turizam")
+
+
 class ScrapeIntegrationTests(EndpointTestCase):
     def test_a_whole_scrape_works_against_the_surviving_endpoints(self):
         listing = {

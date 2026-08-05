@@ -3,6 +3,7 @@
 Pure HTTP: no browser, no download, works the moment the app opens.
 """
 
+import json
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -20,11 +21,14 @@ from PySide6.QtWidgets import (
 
 from app.desktop import settings
 from app.desktop.tabs.base import BaseScrapeTab
-from app.desktop.widgets import CheckList
-from app.scrapers.arbeitsagentur import get_arbeitsagentur_categories
+from app.desktop.widgets import TreeCheckList
+from app.scrapers.arbeitsagentur import BERUFSFELD_HR, get_arbeitsagentur_categories
 
 DEFAULTS = {
     "categories": [],
+    # JSON string ({group: "all" | [Berufsfeld, ...]}); QSettings round-trips
+    # strings faithfully on every backend, nested dicts not always.
+    "selection": "",
     "keyword": "",
     "location": "",
     "radius": 0,
@@ -73,13 +77,12 @@ class ArbeitsagenturTab(BaseScrapeTab):
 
         # Test with a Berufsfeld from whatever is selected, so the probe reflects
         # the run the user was about to start.
-        selected = self.categories.checked()
+        selection = self.categories.selection()
         berufsfeld = None
-        if selected:
-            for item in self._categories:
-                if item["key"] == selected[0] and item["berufsfelder"]:
-                    berufsfeld = item["berufsfelder"][0]
-                    break
+        for values in selection.values():
+            if values:
+                berufsfeld = values[0]
+                break
 
         self._process.start(
             {
@@ -131,19 +134,24 @@ class ArbeitsagenturTab(BaseScrapeTab):
 
         selection = QGroupBox("Što skrejpamo")
         selection_layout = QVBoxLayout(selection)
-        selection_layout.addWidget(QLabel("Kategorije (Berufsfelder):"))
-        self.categories = CheckList()
-        self.categories.set_items(
+        selection_layout.addWidget(QLabel("Kategorije i podskupine:"))
+        self.categories = TreeCheckList()
+        self.categories.set_groups(
             [
-                (item["key"], f"{item['label']}  ({len(item['berufsfelder'])} polja)")
+                (
+                    item["key"],
+                    f"{item['label']}  ({len(item['berufsfelder'])} polja)",
+                    [(name, BERUFSFELD_HR.get(name, name)) for name in item["berufsfelder"]],
+                )
                 for item in self._categories
             ]
         )
         selection_layout.addWidget(self.categories)
 
         hint = QLabel(
-            "Svaka kategorija je grupa njemačkih Berufsfelder polja i piše se u svoju "
-            "datoteku. Bez odabrane kategorije pretražuje se cijeli portal po pojmu."
+            "Kvačica na kategoriji uzima sve njene podskupine; proširi kategoriju "
+            "za izbor pojedinih. Njemački naziv polja piše u tooltipu. Bez odabira "
+            "pretražuje se cijeli portal po pojmu."
         )
         hint.setObjectName("hint")
         hint.setWordWrap(True)
@@ -223,8 +231,18 @@ class ArbeitsagenturTab(BaseScrapeTab):
 
     def load_settings(self) -> None:
         values = settings.load(self.settings_section, DEFAULTS)
-        if values["categories"]:
-            self.categories.set_checked([str(v) for v in values["categories"]])
+        selection = {}
+        if values.get("selection"):
+            try:
+                selection = json.loads(values["selection"])
+            except (ValueError, TypeError):
+                selection = {}
+        if isinstance(selection, dict) and selection:
+            self.categories.set_selection(selection)
+        elif values["categories"]:
+            # Settings written before sub-field selection existed: a list of
+            # group keys, each meaning the whole group.
+            self.categories.set_selection({str(v): "all" for v in values["categories"]})
         self.keyword.setText(values["keyword"])
         self.location.setText(values["location"])
         self.radius.setValue(values["radius"])
@@ -239,10 +257,20 @@ class ArbeitsagenturTab(BaseScrapeTab):
             self.output_edit.setText(values["output_dir"])
 
     def save_settings(self) -> None:
+        selection = self.categories.selection()
         settings.save(
             self.settings_section,
             {
-                "categories": self.categories.checked(),
+                # Full groups compress to "all" so they keep following the group
+                # when the board adds or renames a Berufsfeld.
+                "selection": json.dumps(
+                    {
+                        key: "all" if len(values) == self.categories.group_size(key) else values
+                        for key, values in selection.items()
+                    },
+                    ensure_ascii=False,
+                ),
+                "categories": list(selection),
                 "keyword": self.keyword.text().strip(),
                 "location": self.location.text().strip(),
                 "radius": self.radius.value(),
@@ -260,14 +288,21 @@ class ArbeitsagenturTab(BaseScrapeTab):
     # ---- run ------------------------------------------------------------
 
     def build_config(self) -> dict:
-        selected = self.categories.checked()
+        selection = self.categories.selection()
         keyword = self.keyword.text().strip()
-        if not selected and not keyword:
+        if not selection and not keyword:
             raise ValueError("Odaberi barem jednu kategoriju ili upiši pojam za pretragu.")
 
         labels = {item["key"]: item["label"] for item in self._categories}
-        if selected:
-            targets = [{"category": key, "label": labels.get(key, key)} for key in selected]
+        if selection:
+            targets = []
+            for key, values in selection.items():
+                target = {"category": key, "label": labels.get(key, key)}
+                # A partial group carries the explicit sub-field list; a full
+                # group scrapes by group key, exactly as before.
+                if len(values) < self.categories.group_size(key):
+                    target["berufsfelder"] = values
+                targets.append(target)
         else:
             targets = [{"category": None, "label": keyword}]
 
