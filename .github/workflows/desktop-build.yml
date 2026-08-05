@@ -54,7 +54,10 @@ jobs:
         include:
           - os: macos-14
             asset: Skrejper-macOS-arm64
-          - os: macos-13
+          # Not macos-13: that image was retired in December 2025, so the job
+          # never gets a runner and sits queued forever instead of failing.
+          # macos-15-intel is the last x86_64 image GitHub offers (until 2027).
+          - os: macos-15-intel
             asset: Skrejper-macOS-intel
           - os: windows-latest
             asset: Skrejper-Windows-x64
