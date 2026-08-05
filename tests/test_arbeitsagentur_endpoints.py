@@ -172,6 +172,102 @@ class DetailEndpointTests(EndpointTestCase):
         self.assertEqual(len(calls), 1)
 
 
+class BerufsfeldFallbackTests(EndpointTestCase):
+    """The board renames Berufsfeld values, and a renamed one filters every
+    posting out while still answering 200 — which looked exactly like "the
+    scraper is broken": connection fine, zero results, nothing in the log."""
+
+    def setUp(self):
+        super().setUp()
+        aa._search_url = f"{aa.API_BASE}/pc/v6/jobs"  # skip resolution
+        self.listing = {
+            "refnr": "REF-1",
+            "titel": "Maurer",
+            "arbeitgeber": "Bau GmbH",
+            "arbeitsort": {"ort": "Berlin"},
+        }
+
+    def scrape(self, responses, **kwargs):
+        """responses: callable(berufsfeld, keyword) -> payload."""
+        calls = []
+
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout):
+            calls.append({"berufsfeld": berufsfeld, "keyword": keyword, "page": page})
+            return responses(berufsfeld, keyword, page)
+
+        with mock.patch.object(aa, "_search_json", fake_search), mock.patch.object(
+            aa, "_detail_json", return_value=DETAIL_PAYLOAD
+        ):
+            jobs = aa.scrape_arbeitsagentur(category="Hochbau", max_pages=2, **kwargs)
+        return jobs, calls
+
+    def test_a_berufsfeld_that_matches_nothing_is_retried_as_free_text(self):
+        def responses(berufsfeld, keyword, page):
+            if berufsfeld:
+                return {"stellenangebote": [], "maxErgebnisse": 0}
+            return {"stellenangebote": [self.listing] if page == 1 else [], "maxErgebnisse": 1}
+
+        jobs, calls = self.scrape(responses)
+
+        self.assertEqual(calls[0]["berufsfeld"], "Hochbau")
+        self.assertEqual(calls[1], {"berufsfeld": None, "keyword": "Hochbau", "page": 1})
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["email"], "info@muster.de")
+
+    def test_the_switch_is_announced(self):
+        # A wider, less precise search must never happen silently.
+        self.scrape(lambda b, k, p: {"stellenangebote": [], "maxErgebnisse": 0})
+
+        self.assertTrue(
+            any("ponavljam kao was=" in line for line in self.logs),
+            f"the fallback must be visible in the log, got: {self.logs}",
+        )
+
+    def test_later_pages_stay_on_free_text(self):
+        def responses(berufsfeld, keyword, page):
+            if berufsfeld:
+                return {"stellenangebote": [], "maxErgebnisse": 0}
+            listing = dict(self.listing, refnr=f"REF-{page}")
+            # Comfortably above one page, or the scraper stops after page 1.
+            return {"stellenangebote": [listing], "maxErgebnisse": 5000}
+
+        _jobs, calls = self.scrape(responses)
+
+        self.assertTrue(all(call["berufsfeld"] is None for call in calls[1:]), calls)
+        self.assertEqual([call["keyword"] for call in calls[1:]], ["Hochbau", "Hochbau"])
+
+    def test_a_berufsfeld_that_works_is_left_alone(self):
+        def responses(berufsfeld, keyword, page):
+            listing = dict(self.listing, refnr=f"REF-{page}")
+            return {"stellenangebote": [listing] if page == 1 else [], "maxErgebnisse": 1}
+
+        _jobs, calls = self.scrape(responses)
+
+        self.assertTrue(all(call["berufsfeld"] == "Hochbau" for call in calls), calls)
+        self.assertEqual(self.logs, [])
+
+    def test_an_explicit_keyword_is_not_overwritten(self):
+        # The user asked for this term; a category that matches nothing must not
+        # silently replace it.
+        def responses(berufsfeld, keyword, page):
+            return {"stellenangebote": [], "maxErgebnisse": 0}
+
+        _jobs, calls = self.scrape(responses, keyword="Schweisser")
+
+        self.assertTrue(all(call["keyword"] == "Schweisser" for call in calls), calls)
+        self.assertEqual(len(calls), 1, "no fallback when the user supplied a keyword")
+
+    def test_no_fallback_when_the_first_page_had_results(self):
+        def responses(berufsfeld, keyword, page):
+            listing = dict(self.listing, refnr=f"REF-{page}")
+            return {"stellenangebote": [listing] if page == 1 else [], "maxErgebnisse": 5000}
+
+        _jobs, calls = self.scrape(responses)
+
+        self.assertEqual([call["page"] for call in calls], [1, 2])
+        self.assertTrue(all(call["keyword"] is None for call in calls), calls)
+
+
 class ScrapeIntegrationTests(EndpointTestCase):
     def test_a_whole_scrape_works_against_the_surviving_endpoints(self):
         listing = {

@@ -238,31 +238,85 @@ class ProbeTests(RunnerTestCase):
         self.assertIn("endpoint", probe["message"])
         self.assertFalse(self.output.exists(), "a probe must not create output files")
 
-    def test_makes_exactly_one_request(self):
+    def test_compares_an_unfiltered_search_against_a_berufsfeld_one(self):
+        # The difference between the two is what separates "the board is down"
+        # from "our category names no longer match the board's".
         calls = []
 
-        def once(*args, **kwargs):
-            calls.append(args)
-            return {"maxErgebnisse": 1}
-
-        with mock.patch.object(self.aa, "_search_json", once):
-            runner.run(self.probe_config(), self.events)
-
-        self.assertEqual(len(calls), 1)
-
-    def test_passes_the_keyword_through(self):
-        seen = {}
-
         def capture(berufsfeld, keyword, *rest):
-            seen["berufsfeld"] = berufsfeld
-            seen["keyword"] = keyword
-            return {"maxErgebnisse": 0}
+            calls.append((berufsfeld, keyword))
+            return {"maxErgebnisse": 0 if berufsfeld else 1_200_000}
 
         with mock.patch.object(self.aa, "_search_json", capture):
-            runner.run(self.probe_config(keyword="Schweisser"), self.events)
+            runner.run(self.probe_config(berufsfeld="Hochbau"), self.events)
 
-        self.assertIsNone(seen["berufsfeld"])
-        self.assertEqual(seen["keyword"], "Schweisser")
+        self.assertEqual(calls, [(None, None), ("Hochbau", None)])
+
+        probe = self.events_of("probe")[0]
+        self.assertTrue(probe["ok"])
+        self.assertEqual(probe["total"], 1_200_000)
+        self.assertEqual(probe["berufsfeld"], "Hochbau")
+        self.assertEqual(probe["berufsfeld_total"], 0)
+
+    def test_passes_the_keyword_through_on_the_unfiltered_search(self):
+        calls = []
+
+        def capture(berufsfeld, keyword, *rest):
+            calls.append((berufsfeld, keyword))
+            return {"maxErgebnisse": 5}
+
+        with mock.patch.object(self.aa, "_search_json", capture):
+            runner.run(self.probe_config(keyword="Schweisser", berufsfeld="Hochbau"), self.events)
+
+        self.assertEqual(calls[0], (None, "Schweisser"))
+
+    def test_falls_back_to_a_known_berufsfeld_when_none_is_selected(self):
+        calls = []
+
+        def capture(berufsfeld, keyword, *rest):
+            calls.append(berufsfeld)
+            return {"maxErgebnisse": 1}
+
+        with mock.patch.object(self.aa, "_search_json", capture):
+            runner.run(self.probe_config(), self.events)
+
+        first_known = self.aa.get_arbeitsagentur_categories()[0]["berufsfelder"][0]
+        self.assertEqual(calls[1], first_known)
+
+    def test_writes_the_raw_response_for_diagnosis(self):
+        payload = {
+            "maxErgebnisse": 7,
+            "facetten": {"berufsfeld": {"counts": {"Hochbau": 12, "Tiefbau": 5}}},
+        }
+        with mock.patch.object(self.aa, "_search_json", return_value=payload):
+            runner.run(self.probe_config(output_dir=str(self.output)), self.events)
+
+        probe = self.events_of("probe")[0]
+        dump = Path(probe["dump"])
+        self.assertTrue(dump.exists())
+        self.assertEqual(json.loads(dump.read_text(encoding="utf-8"))["unfiltered"], payload)
+        self.assertFalse(list(self.output.glob("*.csv")), "a probe must not write exports")
+
+    def test_reports_the_live_facet_values(self):
+        payload = {
+            "maxErgebnisse": 7,
+            "facetten": {"berufsfeld": {"counts": {"Hochbau": 12, "Tiefbau": 5}}},
+        }
+        with mock.patch.object(self.aa, "_search_json", return_value=payload):
+            runner.run(self.probe_config(), self.events)
+
+        logged = " ".join(event["line"] for event in self.events_of("log"))
+        self.assertIn("facetten: berufsfeld", logged)
+        self.assertIn("Hochbau (12)", logged)
+
+    def test_survives_an_unexpected_facet_shape(self):
+        # The response shape is not pinned down anywhere we control.
+        for facets in ({"berufsfeld": ["Hochbau"]}, {"berufsfeld": None}, [], "nope", None):
+            with self.subTest(facets=facets):
+                with mock.patch.object(
+                    self.aa, "_search_json", return_value={"maxErgebnisse": 1, "facetten": facets}
+                ):
+                    self.assertEqual(runner.run(self.probe_config(), self.events), 0)
 
     def test_an_unexpected_failure_is_reported_as_an_error(self):
         with mock.patch.object(self.aa, "_search_json", side_effect=RuntimeError("boom")):

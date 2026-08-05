@@ -762,10 +762,18 @@ def scrape_arbeitsagentur(
 
     for berufsfeld in queries:
         total_results: int | None = None
+        # True once the Berufsfeld matched nothing and we switched to free text.
+        fell_back = False
 
         for page in range(1, max_pages + 1):
             payload = _search_json(
-                berufsfeld, keyword, location, radius, page, page_size, search_timeout
+                None if fell_back else berufsfeld,
+                berufsfeld if fell_back else keyword,
+                location,
+                radius,
+                page,
+                page_size,
+                search_timeout,
             )
             if payload is None:
                 _log(f"[arbeitsagentur] No response for {berufsfeld!r} page {page}; skipping rest.")
@@ -774,6 +782,25 @@ def scrape_arbeitsagentur(
             if total_results is None:
                 total_results = payload.get("maxErgebnisse")
             listings = payload.get("stellenangebote") or []
+
+            # The board renames its Berufsfeld values without notice, and a
+            # renamed one filters every posting out while still answering 200.
+            # Retry the same term as a free-text search rather than reporting an
+            # empty category — but say so, because `was` matches the advert text
+            # instead of the structured occupation, so the scope is wider.
+            if not listings and page == 1 and berufsfeld and not keyword and not fell_back:
+                _log(
+                    f"[arbeitsagentur] berufsfeld={berufsfeld!r} vratio 0 oglasa; "
+                    f"ponavljam kao was={berufsfeld!r} (šira, manje precizna pretraga)."
+                )
+                fell_back = True
+                payload = _search_json(
+                    None, berufsfeld, location, radius, page, page_size, search_timeout
+                )
+                if payload is None:
+                    break
+                total_results = payload.get("maxErgebnisse")
+                listings = payload.get("stellenangebote") or []
 
             if debug_progress:
                 _log(

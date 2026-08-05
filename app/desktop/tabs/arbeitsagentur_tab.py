@@ -3,6 +3,8 @@
 Pure HTTP: no browser, no download, works the moment the app opens.
 """
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QCheckBox,
     QFormLayout,
@@ -68,22 +70,53 @@ class ArbeitsagenturTab(BaseScrapeTab):
         self.probe_button.setEnabled(False)
         self.start_button.setEnabled(False)
         self.status_label.setText("Provjeravam vezu…")
+
+        # Test with a Berufsfeld from whatever is selected, so the probe reflects
+        # the run the user was about to start.
+        selected = self.categories.checked()
+        berufsfeld = None
+        if selected:
+            for item in self._categories:
+                if item["key"] == selected[0] and item["berufsfelder"]:
+                    berufsfeld = item["berufsfelder"][0]
+                    break
+
         self._process.start(
             {
                 "source": "arbeitsagentur",
                 "mode": "probe",
                 "keyword": self.keyword.text().strip() or None,
+                "berufsfeld": berufsfeld,
+                "output_dir": self.output_edit.text().strip(),
             }
         )
 
     def _on_probed(self, event: dict) -> None:
-        if event.get("ok"):
-            endpoint = (event.get("endpoint") or "").rsplit("/jobsuche-service", 1)[-1]
-            total = event.get("total")
-            found = f", {total} oglasa" if total is not None else ""
-            self.status_label.setText(f"Veza radi — endpoint {endpoint}{found}.")
-        else:
+        if not event.get("ok"):
             self.status_label.setText(event.get("message") or "Veza ne radi.")
+            return
+
+        endpoint = (event.get("endpoint") or "").rsplit("/jobsuche-service", 1)[-1]
+        total = event.get("total")
+        field, field_total = event.get("berufsfeld"), event.get("berufsfeld_total")
+
+        if field and not field_total:
+            # The interesting failure: the board answers, but our category names
+            # no longer match anything it indexes.
+            message = (
+                f"Veza radi ({total} oglasa), ali kategorija „{field}” vraća 0 — "
+                "oznake kategorija su zastarjele."
+            )
+            self._files = [event["dump"]] if event.get("dump") else []
+            self.open_button.setEnabled(bool(self._files))
+        else:
+            found = f" — {total} oglasa" if total is not None else ""
+            extra = f", „{field}” {field_total}" if field else ""
+            message = f"Veza radi{found}{extra}. Endpoint {endpoint}."
+
+        if event.get("dump"):
+            message += f"  Podaci: {Path(event['dump']).name}"
+        self.status_label.setText(message)
 
     def build_form(self) -> QWidget:
         container = QWidget()

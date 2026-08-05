@@ -274,21 +274,57 @@ def _install_stop_handler() -> None:
         pass
 
 
-def _probe(config: dict, events: _EventWriter) -> int:
-    """One minimal request, to answer "is the board reachable" in two seconds.
+def _facet_names(payload: dict) -> list[str]:
+    facets = payload.get("facetten")
+    return sorted(facets) if isinstance(facets, dict) else []
 
-    A full run takes minutes and buries the answer in per-category noise; this
-    exists so "it doesn't work" can be diagnosed without one.
+
+def _facet_values(payload: dict, limit: int = 30) -> list[str]:
+    """Best-effort read of the occupation facet, whatever the board calls it.
+
+    The response shape is not pinned down anywhere we can rely on, so this
+    tolerates a dict of counts, a list of dicts, or a plain list, and gives up
+    quietly rather than breaking the probe.
+    """
+    facets = payload.get("facetten")
+    if not isinstance(facets, dict):
+        return []
+
+    for key, facet in facets.items():
+        if "beruf" not in key.casefold():
+            continue
+        counts = facet.get("counts") if isinstance(facet, dict) else facet
+        if isinstance(counts, dict):
+            ordered = sorted(counts.items(), key=lambda kv: -(kv[1] or 0))
+            return [f"{name} ({count})" for name, count in ordered[:limit]]
+        if isinstance(counts, list):
+            out = []
+            for item in counts[:limit]:
+                if isinstance(item, dict):
+                    label = item.get("value") or item.get("name") or item.get("label")
+                    out.append(f"{label} ({item.get('count', '?')})")
+                else:
+                    out.append(str(item))
+            return out
+    return []
+
+
+def _probe(config: dict, events: _EventWriter) -> int:
+    """Answer "does this work, and if not why" in one click.
+
+    A full run takes minutes and buries the answer in per-category noise. This
+    makes two requests — one unfiltered, one with a Berufsfeld — because the
+    difference between them is what separates "the board is down" from "our
+    category names no longer match the board's".
     """
     events.emit("log", line=f"[gui] Skrejper {paths.version_string()}")
 
     from app.scrapers import arbeitsagentur
 
     timeout = int(os.getenv("ARBEITSAGENTUR_SEARCH_TIMEOUT", "60"))
-    payload = arbeitsagentur._search_json(
-        None, config.get("keyword") or None, None, None, 1, 1, timeout
-    )
+    keyword = config.get("keyword") or None
 
+    payload = arbeitsagentur._search_json(None, keyword, None, None, 1, 1, timeout)
     if payload is None:
         # _search_json has already logged the status and the paths it tried.
         events.emit(
@@ -298,11 +334,53 @@ def _probe(config: dict, events: _EventWriter) -> int:
         )
         return 1
 
+    total = payload.get("maxErgebnisse")
+    endpoint = arbeitsagentur._search_url or ""
+
+    # Which Berufsfeld to test with: whatever the tab had selected, else the
+    # first one we know about.
+    berufsfeld = config.get("berufsfeld")
+    if not berufsfeld:
+        groups = arbeitsagentur.get_arbeitsagentur_categories()
+        berufsfeld = groups[0]["berufsfelder"][0] if groups else None
+
+    field_total = None
+    if berufsfeld:
+        field_payload = arbeitsagentur._search_json(berufsfeld, None, None, None, 1, 1, timeout)
+        field_total = (field_payload or {}).get("maxErgebnisse")
+        _emit_line = f"[arbeitsagentur] berufsfeld={berufsfeld!r} -> {field_total} oglasa"
+        events.emit("log", line=_emit_line)
+
+    names = _facet_names(payload)
+    if names:
+        events.emit("log", line=f"[arbeitsagentur] facetten: {', '.join(names)}")
+    for value in _facet_values(payload):
+        events.emit("log", line=f"[arbeitsagentur]   {value}")
+
+    dump_path = None
+    output_dir = config.get("output_dir")
+    if output_dir:
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        dump = Path(output_dir) / f"arbeitsagentur-probe-{date_str}.json"
+        dump.parent.mkdir(parents=True, exist_ok=True)
+        dump.write_text(
+            json.dumps(
+                {"endpoint": endpoint, "unfiltered": payload, "berufsfeld": berufsfeld},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        dump_path = str(dump)
+
     events.emit(
         "probe",
         ok=True,
-        endpoint=arbeitsagentur._search_url or "",
-        total=payload.get("maxErgebnisse"),
+        endpoint=endpoint,
+        total=total,
+        berufsfeld=berufsfeld,
+        berufsfeld_total=field_total,
+        dump=dump_path,
     )
     return 0
 
