@@ -1,6 +1,11 @@
 # Minimal requirements for the OpenClaw agent (HZZ + Meinestadt scrapers only).
 # No Supabase, Celery, Redis, Pandas.
 resend>=2.0.0
+# Leadgen (BiH/Srbija) pipeline: HTTP + HTML parsing + fuzzy employer matching.
+requests==2.33.1
+beautifulsoup4==4.15.0
+lxml==6.1.1
+rapidfuzz==3.14.5
 annotated-types==0.7.0
 anyio==4.13.0
 certifi==2023.7.22

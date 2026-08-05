@@ -10,6 +10,12 @@ PySide6==6.11.1
 openpyxl==3.1.5
 playwright==1.58.0
 
+# Leadgen (BiH/Srbija) stranica: HTTP + HTML parsing + fuzzy matching poslodavaca.
+requests==2.33.1
+beautifulsoup4==4.15.0
+lxml==6.1.1
+rapidfuzz==3.14.5
+
 # Build only (used by .github/workflows/desktop-build.yml):
 #   pyinstaller==6.16.0
 #   pillow          # icon.ico conversion
