@@ -191,6 +191,19 @@ def _draw_chevron(path: Path, color: str, size: int = 12, up: bool = False) -> P
     return path
 
 
+def _draw_chevron_right(path: Path, color: str, size: int = 12) -> Path:
+    image = _new_image(size)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setPen(_pen(color, 1.3))
+    s = size * GLYPH_SCALE
+    points = [QPointF(s * 0.38, s * 0.22), QPointF(s * 0.64, s * 0.5), QPointF(s * 0.38, s * 0.78)]
+    painter.drawPolyline(points)
+    painter.end()
+    image.save(str(path), "PNG")
+    return path
+
+
 def _draw_dash(path: Path, color: str, size: int = 12) -> Path:
     image = _new_image(size)
     painter = QPainter(image)
@@ -258,6 +271,9 @@ def build_glyphs(tokens: Tokens) -> dict[str, str]:
         "dash": _draw_dash(directory / "dash.png", tokens.on_accent),
         "chevron_down": _draw_chevron(directory / "chevron-down.png", tokens.text_secondary),
         "chevron_up": _draw_chevron(directory / "chevron-up.png", tokens.text_secondary, up=True),
+        "chevron_right": _draw_chevron_right(
+            directory / "chevron-right.png", tokens.text_secondary
+        ),
     }
     # Qt wants forward slashes in stylesheet urls, on every platform.
     return {key: str(value).replace("\\", "/") for key, value in glyphs.items()}
@@ -480,31 +496,35 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
 
     /* ---- Checkboxes ---- */
     QCheckBox {{ spacing: 9px; padding: 1px 0; }}
-    QCheckBox::indicator, QListWidget::indicator {{
+    QCheckBox::indicator, QListWidget::indicator, QTreeWidget::indicator {{
         width: 18px;
         height: 18px;
         border: 1px solid {t.border_strong};
         border-radius: 4px;
         background: {t.control};
     }}
-    QCheckBox::indicator:hover, QListWidget::indicator:hover {{ background: {t.control_hover}; }}
-    QCheckBox::indicator:checked, QListWidget::indicator:checked {{
+    QCheckBox::indicator:hover, QListWidget::indicator:hover,
+    QTreeWidget::indicator:hover {{ background: {t.control_hover}; }}
+    QCheckBox::indicator:checked, QListWidget::indicator:checked,
+    QTreeWidget::indicator:checked {{
         background: {t.accent};
         border-color: {t.accent};
         image: url("{glyphs['check']}");
     }}
-    QCheckBox::indicator:indeterminate, QListWidget::indicator:indeterminate {{
+    QCheckBox::indicator:indeterminate, QListWidget::indicator:indeterminate,
+    QTreeWidget::indicator:indeterminate {{
         background: {t.accent};
         border-color: {t.accent};
         image: url("{glyphs['dash']}");
     }}
-    QCheckBox::indicator:disabled, QListWidget::indicator:disabled {{
+    QCheckBox::indicator:disabled, QListWidget::indicator:disabled,
+    QTreeWidget::indicator:disabled {{
         background: {t.control_pressed};
         border-color: {t.border};
     }}
 
-    /* ---- Lists and tables ---- */
-    QListWidget, QTableWidget {{
+    /* ---- Lists, trees and tables ---- */
+    QListWidget, QTreeWidget, QTableWidget {{
         background: {t.control};
         border: 1px solid {t.border};
         border-radius: 6px;
@@ -513,6 +533,16 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
     }}
     QListWidget::item {{ padding: 5px 6px; border-radius: 4px; }}
     QListWidget::item:hover {{ background: {t.subtle_hover}; }}
+    QTreeWidget::item {{ padding: 4px 4px; border-radius: 4px; }}
+    QTreeWidget::item:hover, QTreeWidget::item:selected {{
+        background: {t.subtle_hover};
+        color: {t.text};
+    }}
+    /* The expand arrow: our chevrons instead of the platform's +/- boxes,
+       nothing at all for leaf rows. */
+    QTreeWidget::branch {{ background: transparent; }}
+    QTreeWidget::branch:has-children:closed {{ image: url("{glyphs['chevron_right']}"); }}
+    QTreeWidget::branch:has-children:open {{ image: url("{glyphs['chevron_down']}"); }}
     QTableWidget {{ gridline-color: transparent; }}
     QTableWidget::item {{ padding: 5px 8px; border-bottom: 1px solid {t.divider}; }}
     QTableWidget::item:selected {{ background: {t.subtle_hover}; color: {t.text}; }}
