@@ -49,6 +49,16 @@ a = Analysis(
     hiddenimports=(
         playwright_hidden
         + ["openpyxl", "app.desktop.runner", "app.desktop.browsers"]
+        # The leadgen source adapters are loaded by name through
+        # importlib.import_module (see app/leadgen/registry.py), which static
+        # analysis cannot see. Listing them from disk keeps the spec in sync
+        # with new adapters automatically; their static dependencies
+        # (requests, bs4, lxml, rapidfuzz) follow through modulegraph.
+        + [
+            f"app.leadgen.sources.{path.stem}"
+            for path in sorted((ROOT / "app" / "leadgen" / "sources").glob("*.py"))
+            if path.stem != "__init__"
+        ]
         + (["app.desktop.build_info"] if (ROOT / "app/desktop/build_info.py").exists() else [])
     ),
     hookspath=[],
