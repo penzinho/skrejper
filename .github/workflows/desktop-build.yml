@@ -113,6 +113,9 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: ${{ matrix.asset }}.zip
+          # Appended, not written: a release drafted by hand in the web UI
+          # already has notes, and `body` on its own would overwrite them.
+          append_body: true
           # The builds are unsigned; say so where people download them.
           body: |
             Skrejper desktop — HZZ i Arbeitsagentur, lokalno.
