@@ -115,9 +115,15 @@ kao firmina — prednost imaju `mailto:` linkovi, adrese na domeni firme i opći
 
 Korisno znati:
 
-- Sâm imenik (bez traženja po webovima) prođe se za desetak minuta; traženje po webovima
-  traje sate, jer je to nekoliko sekundi po firmi. *Zaustavi* u svakom trenutku ostavlja obje
+- Sâm imenik (bez traženja po webovima) prođe se za 15-ak minuta; traženje po webovima
+  traje dulje, jer je to nekoliko sekundi po firmi. *Zaustavi* u svakom trenutku ostavlja obje
   datoteke spremljene.
+- Stranica ograničava broj zahtjeva: dvadesetak stranica zaredom bez pauze vrati **HTTP 429**.
+  Zato se stranice hodaju s pauzom od 1,5 s (`GVP_PAGE_DELAY_MS`), 429 se čeka (po serverovom
+  *Retry-After*, inače 15 s pa duplo, do 5 min) i nakon svakog 429 pauza se udvostruči. Ako
+  stranica ni nakon toga ne odgovori, run završi **greškom** s brojem prikupljenih unosa, a
+  ne kao „gotovo” — sve do tada je spremljeno, a ponovni run uz „Preskoči firme koje sam već
+  skrejpao” ne ponavlja izvezene firme.
 - Webovi na kojima e-mail **nije** nađen pamte se (uz „Preskoči firme koje sam već skrejpao”),
   pa idući run ne otvara iste stranice iznova. Sama firma se pritom **ne** pamti — ostaje u
   „missing-emails” listi i provjerava se ponovno ako se u imeniku pojavi adresa.

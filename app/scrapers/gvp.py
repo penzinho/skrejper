@@ -126,6 +126,19 @@ class GvpBlockedError(RuntimeError):
     """The site's firewall (Sucuri) refused us — a network, not a code, problem."""
 
 
+class GvpUnavailableError(RuntimeError):
+    """The directory stopped answering mid-walk; what was collected is kept."""
+
+
+# Pacing. The site rate-limits: ~20 quick requests in a row earned an HTTP 429
+# on a real run. So pages are spaced out by default, a 429 is waited out (the
+# server's Retry-After when it sends one, else a growing pause), and every 429
+# also widens the spacing for the rest of the run.
+DEFAULT_PAGE_DELAY_MS = 1500
+RATE_LIMIT_ATTEMPTS = 6
+RATE_LIMIT_MAX_WAIT_S = 300
+
+
 def _log(message: str) -> None:
     print(message, flush=True)
 
@@ -372,18 +385,35 @@ def _looks_blocked(body: str) -> bool:
     return "sucuri" in lowered and "access denied" in lowered
 
 
+def _retry_after_seconds(exc: urllib.error.HTTPError, attempt: int) -> float:
+    """How long to wait after a 429: the server's word, else 15 s doubling."""
+    header = ""
+    try:
+        header = exc.headers.get("Retry-After", "") if exc.headers else ""
+    except Exception:
+        pass
+    try:
+        wait = float(header)
+    except (TypeError, ValueError):
+        wait = 15.0 * (2 ** (attempt - 1))
+    return max(1.0, min(wait, RATE_LIMIT_MAX_WAIT_S))
+
+
 def _filter_page(
     page: int,
     filters: dict,
     nonce: str,
     timeout: int,
     attempts: int = 3,
+    throttle: dict | None = None,
 ) -> dict | None:
     """One page of the directory via the theme's REST route.
 
     Returns the decoded payload (``data``, ``current_count``, ``total_count``)
     or None when the site never answered. A firewall block is raised, not
-    returned: retrying it only digs the hole deeper.
+    returned: retrying it only digs the hole deeper. An HTTP 429 is waited out
+    up to ``RATE_LIMIT_ATTEMPTS`` times and counted in ``throttle["hits"]`` so
+    the caller can slow down for the rest of the run.
     """
     form = {
         "search": filters.get("search") or "",
@@ -407,7 +437,10 @@ def _filter_page(
         headers["X-WP-Nonce"] = nonce
 
     last_error: Exception | None = None
-    for attempt in range(1, attempts + 1):
+    attempt = 0
+    rate_limited = 0
+    while True:
+        attempt += 1
         try:
             body = _fetch_text(FILTER_URL, timeout, data=data, headers=headers)
             return _decode_payload(body)
@@ -422,14 +455,26 @@ def _filter_page(
                     "personaldienstleister.de je odbio zahtjev (Sucuri firewall, HTTP 403). "
                     "Ova IP adresa je na njihovoj crnoj listi — pokušaj s druge mreže."
                 ) from exc
+            if exc.code == 429:
+                rate_limited += 1
+                if throttle is not None:
+                    throttle["hits"] = throttle.get("hits", 0) + 1
+                if rate_limited >= RATE_LIMIT_ATTEMPTS:
+                    _log(f"[gvp] Giving up on page {page}: HTTP 429 after {rate_limited} waits.")
+                    return None
+                wait = _retry_after_seconds(exc, rate_limited)
+                _log(f"[gvp] HTTP 429 (zu viele Anfragen) auf Seite {page} — warte {wait:.0f}s.")
+                time.sleep(wait)
+                continue
             if exc.code in (400, 401, 403, 404):
                 _log(f"[gvp] HTTP {exc.code} for page {page}: {body[:200]}")
                 return None
             last_error = exc
         except Exception as exc:  # network / timeout / decode
             last_error = exc
-        if attempt < attempts:
-            time.sleep(2 * attempt)
+        if attempt >= attempts:
+            break
+        time.sleep(2 * attempt)
     _log(f"[gvp] Giving up on page {page}: {last_error}")
     return None
 
@@ -576,7 +621,7 @@ def scrape_gvp(
     skip_enrich_ids = skip_enrich_ids or set()
     timeout = int(os.getenv("GVP_TIMEOUT", "60"))
     site_timeout = int(os.getenv("GVP_SITE_TIMEOUT", "12"))
-    page_delay_ms = int(os.getenv("GVP_PAGE_DELAY_MS", "300"))
+    page_delay_ms = int(os.getenv("GVP_PAGE_DELAY_MS", str(DEFAULT_PAGE_DELAY_MS)))
     site_delay_ms = int(os.getenv("GVP_SITE_DELAY_MS", "200"))
 
     filters = {
@@ -595,12 +640,19 @@ def scrape_gvp(
     page_size: int | None = None  # the site decides (ten); learned from page 1
     page = 1
     with_email = 0
+    throttle = {"hits": 0}
 
     while max_pages is None or page <= max_pages:
-        payload = _filter_page(page, filters, nonce, timeout)
+        payload = _filter_page(page, filters, nonce, timeout, throttle=throttle)
         if payload is None:
-            _log(f"[gvp] No response for page {page}; stopping.")
-            break
+            # Stopping quietly would report a partial directory as "done".
+            walked = f"{len(seen_keys)}" + (f" od {total}" if total else "")
+            raise GvpUnavailableError(
+                f"personaldienstleister.de je prestao odgovarati na stranici {page}. "
+                f"Prikupljeno je {walked} unosa i spremljeno. Pokreni ponovno za koju "
+                "minutu — uz „Preskoči firme koje sam već skrejpao” već izvezene firme se "
+                "ne ponavljaju."
+            )
 
         parsed = parse_members(payload.get("data") or "")
         if total is None:
@@ -652,8 +704,11 @@ def scrape_gvp(
         if page_size and len(parsed) < page_size:
             break  # a short page is the last one
         page += 1
-        if page_delay_ms:
-            time.sleep(page_delay_ms / 1000)
+        # Each 429 so far doubles the spacing (up to 8×): the server has said
+        # what pace it tolerates, and a second 429 costs far more than the wait.
+        delay_ms = page_delay_ms * (2 ** min(throttle["hits"], 3))
+        if delay_ms:
+            time.sleep(delay_ms / 1000)
 
     return members
 

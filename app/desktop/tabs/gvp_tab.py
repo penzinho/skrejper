@@ -91,9 +91,10 @@ class GvpTab(BaseScrapeTab):
         filters_form.addRow("", self.branches)
 
         hint = QLabel(
-            "Bez filtera se prolazi cijeli imenik — oko 8.700 unosa po 10 na stranici, "
-            "što je desetak minuta. Traženje e-maila po webovima traje puno dulje; "
-            "Zaustavi u svakom trenutku ostavlja obje datoteke spremljene."
+            "Bez filtera se prolazi cijeli imenik po 10 unosa na stranici, s pauzom "
+            "između stranica jer stranica inače vrati HTTP 429 — računaj na 15-ak minuta. "
+            "Traženje e-maila po webovima traje dulje. Zaustavi u svakom trenutku ostavlja "
+            "obje datoteke spremljene."
         )
         hint.setObjectName("hint")
         hint.setWordWrap(True)

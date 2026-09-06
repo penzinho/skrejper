@@ -249,7 +249,7 @@ class PagingTests(unittest.TestCase):
         calls = []
         total = len(pages) * 10 if total is None else total
 
-        def fake(page, filters, nonce, timeout, attempts=3):
+        def fake(page, filters, nonce, timeout, attempts=3, throttle=None):
             calls.append((page, dict(filters), nonce))
             fragment = pages[page - 1] if page - 1 < len(pages) else ""
             return {"data": fragment, "current_count": fragment.count("memberlist__entry"), "total_count": total}
@@ -355,10 +355,34 @@ class PagingTests(unittest.TestCase):
         self.assertEqual(member["email"], "")
         self.assertNotIn("enrich_tried", member)
 
-    def test_no_response_ends_the_walk_with_what_was_collected(self):
+    def test_no_response_mid_walk_is_an_error_after_streaming_what_was_collected(self):
+        # A partial directory must not come back as "done": the caller keeps
+        # the streamed rows and the user sees why it stopped.
         fake, _calls = self.route([self.page_of(1)], total=50)
+        streamed = []
         with mock.patch.object(gvp, "_filter_page", lambda page, *a, **k: fake(page, *a, **k) if page == 1 else None):
-            self.assertEqual(len(gvp.scrape_gvp()), 10)
+            with self.assertRaises(gvp.GvpUnavailableError) as caught:
+                gvp.scrape_gvp(on_member=streamed.append)
+        self.assertEqual(len(streamed), 10)
+        self.assertIn("stranici 2", str(caught.exception))
+        self.assertIn("10 od 50", str(caught.exception))
+
+    def test_pages_are_spaced_out_and_a_429_widens_the_spacing(self):
+        pages = [self.page_of(1), self.page_of(11), self.page_of(21), self.page_of(31)]
+        fake, _calls = self.route(pages, total=40)
+
+        def throttled(page, filters, nonce, timeout, attempts=3, throttle=None):
+            if page == 2:
+                throttle["hits"] += 1  # what _filter_page does after waiting out a 429
+            return fake(page, filters, nonce, timeout, attempts, throttle)
+
+        self.env.stop()  # use the real default spacing here
+        self.addCleanup(self.env.start)
+        with mock.patch.object(gvp, "_filter_page", throttled), mock.patch.object(gvp.time, "sleep") as sleep:
+            gvp.scrape_gvp()
+
+        base = gvp.DEFAULT_PAGE_DELAY_MS / 1000
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [base, base * 2, base * 2])
 
 
 class RouteTests(unittest.TestCase):
@@ -398,6 +422,34 @@ class RouteTests(unittest.TestCase):
             with self.assertRaises(gvp.GvpBlockedError) as caught:
                 gvp._filter_page(1, {}, "", 10)
         self.assertIn("Sucuri", str(caught.exception))
+
+    def http_error(self, code, headers=None, body=b""):
+        error = urllib.error.HTTPError(gvp.FILTER_URL, code, "err", headers or {}, None)
+        error.read = lambda: body
+        return error
+
+    def test_a_429_is_waited_out_with_the_servers_retry_after(self):
+        ok = json.dumps({"data": "", "current_count": 0, "total_count": 0})
+        answers = [self.http_error(429, {"Retry-After": "7"}), self.http_error(429), ok]
+        throttle = {"hits": 0}
+        with mock.patch.object(gvp, "_fetch_text", side_effect=answers), mock.patch.object(gvp.time, "sleep") as sleep:
+            payload = gvp._filter_page(5, {}, "", 10, throttle=throttle)
+
+        self.assertEqual(payload["total_count"], 0)
+        self.assertEqual(throttle["hits"], 2)
+        # First wait: the header. Second: no header, so the doubling schedule.
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [7.0, 30.0])
+
+    def test_persistent_429_gives_up_after_the_waits_not_before(self):
+        answers = [self.http_error(429)] * gvp.RATE_LIMIT_ATTEMPTS
+        with mock.patch.object(gvp, "_fetch_text", side_effect=answers), mock.patch.object(gvp.time, "sleep") as sleep:
+            self.assertIsNone(gvp._filter_page(5, {}, "", 10))
+        self.assertEqual(sleep.call_count, gvp.RATE_LIMIT_ATTEMPTS - 1)
+        # 15, 30, 60, 120, 240 — never beyond the cap.
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [15.0, 30.0, 60.0, 120.0, 240.0])
+
+    def test_retry_after_is_capped(self):
+        self.assertEqual(gvp._retry_after_seconds(self.http_error(429, {"Retry-After": "9999"}), 1), gvp.RATE_LIMIT_MAX_WAIT_S)
 
     def test_transient_errors_are_retried_then_given_up_quietly(self):
         with mock.patch.object(gvp, "_fetch_text", side_effect=OSError("reset")), mock.patch.object(
