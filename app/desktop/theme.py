@@ -241,12 +241,32 @@ def _draw_globe(path: Path, color: str, size: int = 20) -> Path:
     return path
 
 
+def _draw_people(path: Path, color: str, size: int = 20) -> Path:
+    """Nav icon for GVP — a member directory."""
+    image = _new_image(size)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.Antialiasing)
+    s = size * GLYPH_SCALE
+    painter.setPen(_pen(color, 1.4))
+    painter.setBrush(Qt.NoBrush)
+    # Front person: head and shoulders.
+    painter.drawEllipse(QPointF(s * 0.40, s * 0.33), s * 0.14, s * 0.14)
+    painter.drawArc(int(s * 0.14), int(s * 0.54), int(s * 0.52), int(s * 0.50), 0, 180 * 16)
+    # Second person, half hidden behind.
+    painter.drawArc(int(s * 0.56), int(s * 0.24), int(s * 0.22), int(s * 0.22), -60 * 16, 210 * 16)
+    painter.drawArc(int(s * 0.58), int(s * 0.54), int(s * 0.30), int(s * 0.50), 20 * 16, 100 * 16)
+    painter.end()
+    image.save(str(path), "PNG")
+    return path
+
+
 def nav_icons(tokens: Tokens) -> dict[str, str]:
     """Icons for the navigation rail, drawn in the primary text colour."""
     directory = _glyph_dir(tokens)
     return {
         "hzz": str(_draw_document(directory / "nav-hzz.png", tokens.text)),
         "arbeitsagentur": str(_draw_globe(directory / "nav-arbeitsagentur.png", tokens.text)),
+        "gvp": str(_draw_people(directory / "nav-gvp.png", tokens.text)),
     }
 
 

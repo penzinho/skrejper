@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from app.desktop import paths, theme
 from app.desktop.paths import APP_NAME, ORG_NAME
 from app.desktop.tabs.arbeitsagentur_tab import ArbeitsagenturTab
+from app.desktop.tabs.gvp_tab import GvpTab
 from app.desktop.tabs.hzz_tab import HzzTab
 
 ICON_PATH = paths.resource_dir() / "icon.png"
@@ -67,10 +68,12 @@ class MainWindow(QMainWindow):
 
         self.hzz_tab = HzzTab()
         self.arbeitsagentur_tab = ArbeitsagenturTab()
+        self.gvp_tab = GvpTab()
+        self.tabs = (self.hzz_tab, self.arbeitsagentur_tab, self.gvp_tab)
 
         self.pages = QStackedWidget()
-        self.pages.addWidget(self.hzz_tab)
-        self.pages.addWidget(self.arbeitsagentur_tab)
+        for tab in self.tabs:
+            self.pages.addWidget(tab)
 
         central = QWidget()
         layout = QHBoxLayout(central)
@@ -124,7 +127,11 @@ class MainWindow(QMainWindow):
         self.nav.setObjectName("nav")
         self.nav.setIconSize(QSize(19, 19))
         self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        for label, key in (("HZZ", "hzz"), ("Arbeitsagentur", "arbeitsagentur")):
+        for label, key in (
+            ("HZZ", "hzz"),
+            ("Arbeitsagentur", "arbeitsagentur"),
+            ("GVP članovi", "gvp"),
+        ):
             item = QListWidgetItem(label)
             item.setIcon(QIcon(icons[key]))
             self.nav.addItem(item)
@@ -179,7 +186,7 @@ class MainWindow(QMainWindow):
             self,
             f"O aplikaciji {APP_NAME}",
             f"<b>{APP_NAME}</b> {paths.version_string()}<br><br>"
-            "Lokalni skrejper oglasa za HZZ i Arbeitsagentur.<br>"
+            "Lokalni skrejper oglasa za HZZ i Arbeitsagentur te imenika članova GVP-a.<br>"
             "Radi bez servera i baze — sve ostaje na ovom računalu.<br><br>"
             f"Podaci aplikacije:<br><code>{paths.app_data_dir()}</code>",
         )
@@ -191,7 +198,7 @@ class MainWindow(QMainWindow):
             self.restoreGeometry(geometry)
 
     def _running_tabs(self) -> list:
-        return [tab for tab in (self.hzz_tab, self.arbeitsagentur_tab) if tab.running]
+        return [tab for tab in self.tabs if tab.running]
 
     def closeEvent(self, event) -> None:
         if self._running_tabs():
@@ -257,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         window.hzz_tab.build_config()
         window.arbeitsagentur_tab.categories.set_all(True)
         window.arbeitsagentur_tab.build_config()
+        window.gvp_tab.build_config()
         print("self-test ok")
         return 0
 

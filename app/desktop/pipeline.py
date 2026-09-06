@@ -9,6 +9,12 @@ The one rule worth restating, because it is easy to get backwards: **a posting
 id is only remembered when the posting actually yielded an e-mail.** A posting
 with no contact address may get one later, so burning its id would mean never
 looking at it again.
+
+The GVP member directory is the exception that proves the rule: there the
+entries *without* an address are wanted too — as a worklist for finding one —
+so a collector can be asked to keep them (``keep_without_email``). They go to
+a separate list, never into the export proper, and their ids are still not
+remembered.
 """
 
 import unicodedata
@@ -28,15 +34,23 @@ ARBEITSAGENTUR_FIELDS = [
     "refnr", "source",
 ]
 
+GVP_FIELDS = [
+    "email", "company", "city", "plz", "street", "country",
+    "phone", "website", "managing_director", "business_fields",
+    "member", "email_source", "source",
+]
+
 SOURCE_FIELDS = {
     "hzz": HZZ_FIELDS,
     "arbeitsagentur": ARBEITSAGENTUR_FIELDS,
+    "gvp": GVP_FIELDS,
 }
 
 # Which job key holds the posting id that goes into seen_store.
 SOURCE_ID_KEY = {
     "hzz": "detail_url",
     "arbeitsagentur": "refnr",
+    "gvp": "member",
 }
 
 
@@ -64,6 +78,8 @@ class Stats:
     duplicate_email: int = 0
     duplicate_company: int = 0
     kept: int = 0
+    # Entries kept *without* an address (only when the collector is asked to).
+    missing: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return {
@@ -73,6 +89,7 @@ class Stats:
             "duplicate_email": self.duplicate_email,
             "duplicate_company": self.duplicate_company,
             "kept": self.kept,
+            "missing": self.missing,
         }
 
 
@@ -109,9 +126,28 @@ def _row_from_arbeitsagentur(job: dict, group_label: str) -> dict[str, str]:
     }
 
 
+def _row_from_gvp(job: dict, group_label: str) -> dict[str, str]:
+    return {
+        "email": (job.get("email") or "").strip(),
+        "company": (job.get("company") or "").strip(),
+        "city": (job.get("city") or "").strip(),
+        "plz": (job.get("plz") or "").strip(),
+        "street": (job.get("street") or "").strip(),
+        "country": (job.get("country") or "").strip(),
+        "phone": (job.get("phone") or "").strip(),
+        "website": (job.get("website") or "").strip(),
+        "managing_director": (job.get("managing_director") or "").strip(),
+        "business_fields": (job.get("business_fields") or "").strip(),
+        "member": (job.get("member") or "").strip(),
+        "email_source": (job.get("email_source") or "").strip(),
+        "source": "gvp",
+    }
+
+
 _ROW_BUILDERS = {
     "hzz": _row_from_hzz,
     "arbeitsagentur": _row_from_arbeitsagentur,
+    "gvp": _row_from_gvp,
 }
 
 
@@ -127,14 +163,25 @@ class LeadCollector:
     seen_emails: set[str] = field(default_factory=set)
     dedupe_company: bool = True
     exclude_terms: tuple[str, ...] = ()
+    # Keep entries that have no e-mail as a separate worklist (``missing_rows``).
+    keep_without_email: bool = False
 
     rows: list[dict[str, str]] = field(default_factory=list, init=False)
+    missing_rows: list[dict[str, str]] = field(default_factory=list, init=False)
     new_ids: list[str] = field(default_factory=list, init=False)
     new_emails: list[str] = field(default_factory=list, init=False)
     stats: Stats = field(default_factory=Stats, init=False)
 
     _run_emails: set[str] = field(default_factory=set, init=False, repr=False)
     _run_companies: set[str] = field(default_factory=set, init=False, repr=False)
+    # Companies that produced at least one row with an address this run.
+    _companies_with_email: set[str] = field(default_factory=set, init=False, repr=False)
+    _missing_companies: set[str] = field(default_factory=set, init=False, repr=False)
+    # Address-less entries of the company currently streaming in, held back
+    # until the next company starts (see ``_queue_missing``).
+    _pending_key: str = field(default="", init=False, repr=False)
+    _pending: list[dict[str, str]] = field(default_factory=list, init=False, repr=False)
+    _missing_outbox: list[dict[str, str]] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.source not in SOURCE_FIELDS:
@@ -148,20 +195,29 @@ class LeadCollector:
         """Fold one scraped posting in. Returns the emitted row, or None if dropped."""
         self.stats.seen += 1
         email = (job.get("email") or "").strip()
+        row = _ROW_BUILDERS[self.source](job, group_label)
+        company_key = normalize_key(row["company"])
+
+        if self.keep_without_email and company_key != self._pending_key:
+            self._flush_pending()
+
         if not email:
             # No e-mail -> don't burn the id; the employer may add one later.
             self.stats.without_email += 1
+            if self.keep_without_email and not is_excluded_company(row["company"], self.exclude_terms):
+                self._queue_missing(row, company_key)
             return None
 
         posting_id = (job.get(SOURCE_ID_KEY[self.source]) or "").strip()
         if posting_id:
             self.new_ids.append(posting_id)
 
-        row = _ROW_BUILDERS[self.source](job, group_label)
-
         if is_excluded_company(row["company"], self.exclude_terms):
             self.stats.excluded_company += 1
             return None
+
+        if company_key:
+            self._companies_with_email.add(company_key)
 
         # Dedup on the e-mail address, not the company name (names vary in spelling).
         email_key = email.casefold()
@@ -169,7 +225,6 @@ class LeadCollector:
             self.stats.duplicate_email += 1
             return None
 
-        company_key = normalize_key(row["company"])
         if self.dedupe_company and company_key and company_key in self._run_companies:
             self.stats.duplicate_company += 1
             return None
@@ -181,3 +236,41 @@ class LeadCollector:
         self.rows.append(row)
         self.stats.kept += 1
         return row
+
+    # ---- entries without an address -------------------------------------
+    #
+    # A directory lists a company's head office and its branches as separate
+    # entries, usually with the address on only one of them. Keeping every
+    # address-less branch of a company whose head office *did* give an e-mail
+    # would pad the worklist with entries nobody needs to look up. Entries are
+    # sorted by company, so the branches of one company arrive together: the
+    # address-less ones are held until the next company begins, then dropped if
+    # the company yielded an e-mail in the meantime, else released.
+
+    def _queue_missing(self, row: dict[str, str], company_key: str) -> None:
+        self._pending_key = company_key
+        self._pending.append(row)
+
+    def _flush_pending(self) -> None:
+        pending, key = self._pending, self._pending_key
+        self._pending, self._pending_key = [], ""
+        if not pending or (key and key in self._companies_with_email):
+            return
+        if self.dedupe_company and key:
+            if key in self._missing_companies:
+                return
+            pending = pending[:1]
+        if key:
+            self._missing_companies.add(key)
+        self.missing_rows.extend(pending)
+        self._missing_outbox.extend(pending)
+        self.stats.missing += len(pending)
+
+    def take_missing(self) -> list[dict[str, str]]:
+        """Address-less rows finalised since the last call (for streaming them out)."""
+        rows, self._missing_outbox = self._missing_outbox, []
+        return rows
+
+    def finish(self) -> None:
+        """Release whatever is still held back; call once the scraper is done."""
+        self._flush_pending()

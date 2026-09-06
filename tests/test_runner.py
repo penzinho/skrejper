@@ -410,6 +410,184 @@ class HzzRunTests(RunnerTestCase):
         self.assertEqual(self.events_of("target_done")[0]["stats"]["excluded_company"], 1)
 
 
+class GvpRunTests(RunnerTestCase):
+    """A directory source: every member is wanted, with or without an e-mail."""
+
+    def member(self, title, company, email="", website="https://firma.de", **extra):
+        job = {
+            "member": title,
+            "company": company,
+            "city": title.split(" - ")[-1].split(" (")[0],
+            "plz": "10115",
+            "street": "Weg 1",
+            "country": "Deutschland",
+            "phone": "030 1",
+            "website": website,
+            "managing_director": "",
+            "business_fields": "Zeitarbeit",
+            "email": email,
+            "email_source": "gvp" if email else "",
+            "source": "gvp",
+        }
+        job.update(extra)
+        return job
+
+    def gvp_config(self, **overrides):
+        config = self.config(
+            source="gvp",
+            keep_without_email=True,
+            targets=[{"category": "mitglieder", "label": "GVP Mitglieder"}],
+            options={"enrich": True, "enrich_pages": 4, "branches": False},
+        )
+        config.update(overrides)
+        return config
+
+    def run_with(self, members, config=None):
+        def fake_scrape(**kwargs):
+            for member in members:
+                kwargs["on_member"](member)
+            return []
+
+        with mock.patch("app.scrapers.gvp.scrape_gvp", fake_scrape):
+            return runner.run(config or self.gvp_config(), self.events)
+
+    def test_members_with_email_go_to_the_main_file_the_rest_to_missing_emails(self):
+        code = self.run_with(
+            [
+                self.member("Alpha GmbH - Berlin (10115)", "Alpha GmbH", "info@alpha.de"),
+                self.member("Beta GmbH - Bonn (53111)", "Beta GmbH"),
+                self.member("Gamma GmbH - Kiel (24103)", "Gamma GmbH", "post@gamma.de"),
+            ]
+        )
+        self.assertEqual(code, 0)
+
+        done = self.events_of("target_done")[0]
+        self.assertEqual(done["rows"], 2)
+        self.assertEqual(done["missing_rows"], 1)
+        main = Path(done["csv"])
+        missing = Path(done["missing_csv"])
+        self.assertTrue(main.name.startswith("gvp-mitglieder-"))
+        self.assertEqual(missing.name, main.stem + "-missing-emails.csv")
+
+        main_text = main.read_text(encoding="utf-8-sig")
+        self.assertIn('"info@alpha.de"', main_text)
+        self.assertIn('"post@gamma.de"', main_text)
+        self.assertNotIn("Beta", main_text)
+
+        missing_text = missing.read_text(encoding="utf-8-sig")
+        self.assertIn('"Beta GmbH"', missing_text)
+        self.assertIn('"https://firma.de"', missing_text)
+        self.assertNotIn("Alpha", missing_text)
+        # Same columns in both files, so they can be merged after enrichment.
+        self.assertEqual(main_text.splitlines()[0], missing_text.splitlines()[0])
+
+        # Address-less members are streamed to the table too, just later.
+        rows = [event["row"] for event in self.events_of("row")]
+        self.assertEqual([r["company"] for r in rows], ["Alpha GmbH", "Gamma GmbH", "Beta GmbH"])
+        self.assertEqual(done["stats"]["missing"], 1)
+
+    def test_a_branch_without_email_is_dropped_when_the_head_office_has_one(self):
+        self.run_with(
+            [
+                self.member("Alpha GmbH - Berlin (10115)", "Alpha GmbH"),
+                self.member("Alpha GmbH - Bonn (53111)", "Alpha GmbH", "info@alpha.de"),
+                self.member("Alpha GmbH - Kiel (24103)", "Alpha GmbH"),
+                self.member("Beta GmbH - Bonn (53111)", "Beta GmbH"),
+                self.member("Beta GmbH - Kiel (24103)", "Beta GmbH"),
+            ]
+        )
+        done = self.events_of("target_done")[0]
+        self.assertEqual(done["rows"], 1)
+        # Beta: two branches, no address anywhere -> one worklist entry.
+        self.assertEqual(done["missing_rows"], 1)
+        missing_text = Path(done["missing_csv"]).read_text(encoding="utf-8-sig")
+        self.assertIn('"Beta GmbH - Bonn (53111)"', missing_text)
+        self.assertNotIn("Alpha", missing_text)
+
+    def test_only_members_with_an_email_are_remembered(self):
+        self.run_with(
+            [
+                self.member("Alpha GmbH - Berlin (10115)", "Alpha GmbH", "info@alpha.de"),
+                self.member("Beta GmbH - Bonn (53111)", "Beta GmbH"),
+            ]
+        )
+        self.assertEqual(
+            (self.state / "seen-gvp.txt").read_text(encoding="utf-8").split("\n")[:-1],
+            ["Alpha GmbH - Berlin (10115)"],
+        )
+        self.assertFalse((self.state / "seen-gvp-enriched.txt").exists())
+
+    def test_failed_website_lookups_are_remembered_and_passed_back(self):
+        self.run_with(
+            [
+                self.member("Beta GmbH - Bonn (53111)", "Beta GmbH", enrich_tried=True),
+                self.member("Gamma GmbH - Kiel (24103)", "Gamma GmbH", "post@gamma.de", email_source="website"),
+            ]
+        )
+        self.assertEqual(
+            (self.state / "seen-gvp-enriched.txt").read_text(encoding="utf-8").split("\n")[:-1],
+            ["Beta GmbH - Bonn (53111)"],
+        )
+
+        captured = {}
+
+        def capture(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        with mock.patch("app.scrapers.gvp.scrape_gvp", capture):
+            runner.run(self.gvp_config(), self.events)
+        self.assertEqual(captured["skip_enrich_ids"], {"Beta GmbH - Bonn (53111)"})
+        self.assertEqual(captured["skip_ids"], {"Gamma GmbH - Kiel (24103)"})
+        self.assertTrue(captured["enrich"])
+        self.assertEqual(captured["enrich_pages"], 4)
+
+    def test_options_reach_the_scraper(self):
+        captured = {}
+
+        with mock.patch("app.scrapers.gvp.scrape_gvp", lambda **k: captured.update(k) or []):
+            runner.run(
+                self.gvp_config(
+                    options={
+                        "search": "Muster", "city": "Kleve", "zip": "47533",
+                        "business_area": "Zeitarbeit", "quality": "QS Pflege", "branches": True,
+                        "max_pages": 3, "member_limit": 20, "enrich": False, "enrich_pages": 2,
+                    }
+                ),
+                self.events,
+            )
+        self.assertEqual(captured["search"], "Muster")
+        self.assertEqual(captured["city"], "Kleve")
+        self.assertEqual(captured["zip_code"], "47533")
+        self.assertEqual(captured["business_area"], "Zeitarbeit")
+        self.assertEqual(captured["quality"], "QS Pflege")
+        self.assertTrue(captured["branches"])
+        self.assertEqual((captured["max_pages"], captured["member_limit"]), (3, 20))
+        self.assertFalse(captured["enrich"])
+
+    def test_stop_mid_run_keeps_both_files(self):
+        def interrupted(**kwargs):
+            kwargs["on_member"](self.member("Alpha GmbH - Berlin (10115)", "Alpha GmbH", "info@alpha.de"))
+            kwargs["on_member"](self.member("Beta GmbH - Bonn (53111)", "Beta GmbH"))
+            raise KeyboardInterrupt
+
+        with mock.patch("app.scrapers.gvp.scrape_gvp", interrupted):
+            self.assertEqual(runner.run(self.gvp_config(), self.events), 130)
+
+        files = {p.name: p for p in self.output.glob("*.csv")}
+        main = next(p for name, p in files.items() if "missing" not in name)
+        missing = next(p for name, p in files.items() if "missing" in name)
+        self.assertIn("info@alpha.de", main.read_text(encoding="utf-8-sig"))
+        # Held back until the next company — the Stop releases it.
+        self.assertIn("Beta GmbH", missing.read_text(encoding="utf-8-sig"))
+
+    def test_other_sources_do_not_get_a_missing_emails_file(self):
+        with mock.patch("app.scrapers.arbeitsagentur.scrape_arbeitsagentur", lambda **k: []):
+            runner.run(self.config(), self.events)
+        self.assertEqual([p.name for p in self.output.glob("*missing*")], [])
+        self.assertNotIn("missing_csv", self.events_of("target_done")[0])
+
+
 class LogRedirectionTests(RunnerTestCase):
     def test_scraper_prints_become_log_events(self):
         stream = io.StringIO()

@@ -14,6 +14,10 @@ stream.
 
 Rows are written to the CSV as they are accepted, not at the end, so pressing
 Stop mid-run still leaves a usable file.
+
+A source that keeps entries without an e-mail (the GVP directory) gets a second
+file next to the first, ``<name>-missing-emails.csv``: the companies still to
+be looked up. It is written the same incremental way.
 """
 
 import csv
@@ -32,7 +36,7 @@ from app.desktop import paths
 paths.configure_environment()
 
 from app.desktop import exporters
-from app.desktop.pipeline import EXCLUDED_COMPANY_TERMS, SOURCE_FIELDS, LeadCollector
+from app.desktop.pipeline import EXCLUDED_COMPANY_TERMS, SOURCE_FIELDS, SOURCE_ID_KEY, LeadCollector
 
 _PROGRESS_INTERVAL_S = 0.4
 
@@ -118,14 +122,20 @@ def _run_target(config: dict, target: dict, events: _EventWriter, index: int, to
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     csv_path = output_dir / f"{source}-{_slug(category or label)}-{date_str}.csv"
 
-    seen_emails = seen_store.load_seen(f"{source}-emails") if config.get("skip_seen", True) else set()
-    skip_ids = seen_store.load_seen(source) if config.get("skip_seen", True) else set()
+    skip_seen = config.get("skip_seen", True)
+    seen_emails = seen_store.load_seen(f"{source}-emails") if skip_seen else set()
+    skip_ids = seen_store.load_seen(source) if skip_seen else set()
+    # Websites already searched for an address without finding one; looking
+    # again every run is what makes a directory re-run take hours.
+    skip_enrich_ids = seen_store.load_seen(f"{source}-enriched") if skip_seen else set()
+    keep_without_email = bool(config.get("keep_without_email"))
 
     collector = LeadCollector(
         source=source,
         seen_emails=seen_emails,
         dedupe_company=config.get("dedupe_company", True),
         exclude_terms=EXCLUDED_COMPANY_TERMS if config.get("exclude_public_sector") else (),
+        keep_without_email=keep_without_email,
     )
 
     events.emit(
@@ -138,7 +148,15 @@ def _run_target(config: dict, target: dict, events: _EventWriter, index: int, to
     )
 
     writer = _IncrementalCsv(csv_path, fields)
+    missing_path = csv_path.with_name(f"{csv_path.stem}-missing-emails.csv")
+    missing_writer = _IncrementalCsv(missing_path, fields) if keep_without_email else None
+    enrich_failed: list[str] = []
     last_progress = 0.0
+
+    def drain_missing() -> None:
+        for pending in collector.take_missing():
+            missing_writer.write(pending)
+            events.emit("row", row=pending)
 
     def on_job(job: dict, group_label: str = "") -> None:
         nonlocal last_progress
@@ -146,6 +164,10 @@ def _run_target(config: dict, target: dict, events: _EventWriter, index: int, to
         if row is not None:
             writer.write(row)
             events.emit("row", row=row)
+        if missing_writer is not None:
+            drain_missing()
+        if job.get("enrich_tried") and not (job.get("email") or "").strip():
+            enrich_failed.append((job.get(SOURCE_ID_KEY[source]) or "").strip())
         now = time.monotonic()
         if now - last_progress >= _PROGRESS_INTERVAL_S:
             last_progress = now
@@ -154,35 +176,44 @@ def _run_target(config: dict, target: dict, events: _EventWriter, index: int, to
     try:
         if source == "hzz":
             _scrape_hzz_target(config, target, on_job, skip_ids)
+        elif source == "gvp":
+            _scrape_gvp_target(config, target, on_job, skip_ids, skip_enrich_ids)
         else:
             _scrape_arbeitsagentur_target(config, target, on_job, skip_ids)
     finally:
+        collector.finish()
+        if missing_writer is not None:
+            drain_missing()
+            missing_writer.close()
         writer.close()
-        if config.get("skip_seen", True):
+        if skip_seen:
             seen_store.add_seen(source, collector.new_ids)
             seen_store.add_seen(f"{source}-emails", collector.new_emails)
+            seen_store.add_seen(f"{source}-enriched", enrich_failed)
 
     xlsx_path = None
+    missing_xlsx = None
     if config.get("write_xlsx", True) and exporters.xlsx_available():
         xlsx_path = csv_path.with_suffix(".xlsx")
         exporters.write_xlsx(xlsx_path, collector.rows, fields, sheet_title=label)
+        if missing_writer is not None:
+            missing_xlsx = missing_path.with_suffix(".xlsx")
+            exporters.write_xlsx(missing_xlsx, collector.missing_rows, fields, sheet_title="Bez e-maila")
 
-    events.emit(
-        "target_done",
-        index=index,
-        total=total,
-        label=label,
-        csv=str(csv_path),
-        xlsx=str(xlsx_path) if xlsx_path else None,
-        rows=len(collector.rows),
-        stats=collector.stats.as_dict(),
-    )
-    return {
+    result = {
         "csv": str(csv_path),
         "xlsx": str(xlsx_path) if xlsx_path else None,
         "rows": len(collector.rows),
         "stats": collector.stats.as_dict(),
     }
+    if missing_writer is not None:
+        result.update(
+            missing_csv=str(missing_path),
+            missing_xlsx=str(missing_xlsx) if missing_xlsx else None,
+            missing_rows=len(collector.missing_rows),
+        )
+    events.emit("target_done", index=index, total=total, label=label, **result)
+    return result
 
 
 def _scrape_hzz_target(config: dict, target: dict, on_job, skip_ids: set[str]) -> None:
@@ -234,6 +265,29 @@ def _scrape_arbeitsagentur_target(config: dict, target: dict, on_job, skip_ids: 
         location=options.get("location") or None,
         radius=options.get("radius") or None,
         on_job=lambda job: on_job(job, target.get("label") or ""),
+        skip_ids=skip_ids,
+    )
+
+
+def _scrape_gvp_target(
+    config: dict, target: dict, on_job, skip_ids: set[str], skip_enrich_ids: set[str]
+) -> None:
+    from app.scrapers.gvp import scrape_gvp
+
+    options = config.get("options", {})
+    scrape_gvp(
+        search=options.get("search") or None,
+        city=options.get("city") or None,
+        zip_code=options.get("zip") or None,
+        business_area=options.get("business_area") or None,
+        quality=options.get("quality") or None,
+        branches=bool(options.get("branches")),
+        max_pages=options.get("max_pages") or None,
+        member_limit=options.get("member_limit") or None,
+        enrich=bool(options.get("enrich")),
+        enrich_pages=int(options.get("enrich_pages") or 4),
+        skip_enrich_ids=skip_enrich_ids,
+        on_member=lambda member: on_job(member, target.get("label") or ""),
         skip_ids=skip_ids,
     )
 

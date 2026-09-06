@@ -186,5 +186,91 @@ class ColumnParityTests(unittest.TestCase):
         self.assertEqual(ARBEITSAGENTUR_FIELDS, scrape_category.FIELDS)
 
 
+def gvp_job(**overrides):
+    job = {
+        "member": "Muster GmbH - Kleve (47533)",
+        "company": "Muster GmbH",
+        "city": "Kleve",
+        "plz": "47533",
+        "street": "Lohengrinstr. 3",
+        "country": "Deutschland",
+        "phone": "02821-1",
+        "website": "http://www.muster.de",
+        "managing_director": "Erika Muster",
+        "business_fields": "Zeitarbeit",
+        "email": "info@muster.de",
+        "email_source": "gvp",
+        "source": "gvp",
+    }
+    job.update(overrides)
+    return job
+
+
+class KeepWithoutEmailTests(unittest.TestCase):
+    """The directory worklist: entries without an address, one per company."""
+
+    def test_default_collectors_still_drop_address_less_entries(self):
+        collector = LeadCollector("gvp")
+        self.assertIsNone(collector.add(gvp_job(email="")))
+        collector.finish()
+        self.assertEqual(collector.missing_rows, [])
+        self.assertEqual(collector.stats.without_email, 1)
+
+    def test_address_less_entry_is_kept_aside_not_exported(self):
+        collector = LeadCollector("gvp", keep_without_email=True)
+        self.assertIsNone(collector.add(gvp_job(email="", email_source="")))
+        collector.finish()
+        self.assertEqual(collector.rows, [])
+        self.assertEqual([r["member"] for r in collector.missing_rows], ["Muster GmbH - Kleve (47533)"])
+        self.assertEqual(list(collector.missing_rows[0]), collector.fields)
+        self.assertEqual(collector.stats.missing, 1)
+        # Its id is not remembered: it may get an address later.
+        self.assertEqual(collector.new_ids, [])
+
+    def test_branches_are_dropped_once_the_company_yields_an_email(self):
+        collector = LeadCollector("gvp", keep_without_email=True)
+        collector.add(gvp_job(member="Muster GmbH - Erfurt (99096)", city="Erfurt", email=""))
+        collector.add(gvp_job())  # head office, with e-mail
+        collector.add(gvp_job(member="Muster GmbH - Bonn (53111)", city="Bonn", email=""))
+        collector.add(gvp_job(member="Other GmbH - Kiel (24103)", company="Other GmbH", email=""))
+        collector.finish()
+        self.assertEqual([r["company"] for r in collector.rows], ["Muster GmbH"])
+        self.assertEqual([r["company"] for r in collector.missing_rows], ["Other GmbH"])
+
+    def test_one_worklist_entry_per_company_unless_dedupe_is_off(self):
+        for dedupe, expected in ((True, 1), (False, 2)):
+            with self.subTest(dedupe_company=dedupe):
+                collector = LeadCollector("gvp", keep_without_email=True, dedupe_company=dedupe)
+                collector.add(gvp_job(member="Muster GmbH - Erfurt (99096)", email=""))
+                collector.add(gvp_job(member="Muster GmbH - Bonn (53111)", email=""))
+                collector.finish()
+                self.assertEqual(len(collector.missing_rows), expected)
+
+    def test_take_missing_streams_each_finalised_row_once(self):
+        collector = LeadCollector("gvp", keep_without_email=True)
+        collector.add(gvp_job(member="A GmbH - X (1)", company="A GmbH", email=""))
+        self.assertEqual(collector.take_missing(), [])  # still held: company A may continue
+        collector.add(gvp_job(member="B GmbH - X (1)", company="B GmbH", email=""))
+        self.assertEqual([r["company"] for r in collector.take_missing()], ["A GmbH"])
+        self.assertEqual(collector.take_missing(), [])
+        collector.finish()
+        self.assertEqual([r["company"] for r in collector.take_missing()], ["B GmbH"])
+
+    def test_excluded_companies_never_reach_the_worklist(self):
+        collector = LeadCollector("gvp", keep_without_email=True, exclude_terms=("skola",))
+        collector.add(gvp_job(company="Sprachschule Skola", email=""))
+        collector.finish()
+        self.assertEqual(collector.missing_rows, [])
+
+    def test_gvp_row_columns(self):
+        collector = LeadCollector("gvp")
+        row = collector.add(gvp_job())
+        self.assertEqual(list(row), collector.fields)
+        self.assertEqual(row["plz"], "47533")
+        self.assertEqual(row["website"], "http://www.muster.de")
+        self.assertEqual(row["email_source"], "gvp")
+        self.assertEqual(collector.new_ids, ["Muster GmbH - Kleve (47533)"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -166,6 +166,7 @@ class BaseScrapeTab(QWidget):
         self.chips = {
             "seen": QLabel(),
             "kept": QLabel(),
+            "missing": QLabel(),
             "duplicates": QLabel(),
         }
         for key, chip in self.chips.items():
@@ -332,11 +333,13 @@ class BaseScrapeTab(QWidget):
         values = {
             "seen": f"{stats.get('seen', 0)} pregledano",
             "kept": f"{stats.get('kept', 0)} s e-mailom",
+            "missing": f"{stats.get('missing', 0)} bez e-maila",
             "duplicates": f"{duplicates} duplikata",
         }
         for key, chip in self.chips.items():
             chip.setText(values[key])
-            chip.setVisible(True)
+            # Only a source that keeps address-less entries has anything to say here.
+            chip.setVisible(key != "missing" or bool(stats.get("missing")))
 
     def _on_target_started(self, index: int, total: int, label: str) -> None:
         self.progress.setRange(0, total)
@@ -346,7 +349,7 @@ class BaseScrapeTab(QWidget):
     def _on_target_done(self, event: dict) -> None:
         self.progress.setValue(int(event.get("index", 0)))
         self._update_stats(event.get("stats") or {})
-        for key in ("csv", "xlsx"):
+        for key in ("csv", "xlsx", "missing_csv", "missing_xlsx"):
             value = event.get(key)
             if value:
                 self._files.append(value)
