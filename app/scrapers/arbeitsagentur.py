@@ -5,8 +5,12 @@ Unlike the HZZ and Meinestadt scrapers, this one does **not** drive a browser.
 The public `jobsuche` frontend (the "infinite scroll" list) is powered by a
 documented REST API, so we talk to that directly:
 
-* search   -> `GET .../pc/v4/jobs?berufsfeld=...&page=..&size=..`
-* detail   -> `GET .../pc/v3/jobdetails/{base64(refnr)}`
+* search   -> `GET .../pc/v6/jobs?berufsfeld=...&page=..&size=..`
+* detail   -> `GET .../pc/v4/jobdetails/{base64(refnr)}`
+
+Both halves are versioned and both have been retired under us, so the paths are
+resolved at runtime (see `SEARCH_PATHS`) and the payloads are read by either
+schema (see `_listings`).
 
 The search response carries the employer name + location for every listing; the
 detail response carries the free-text job description, which is where employer
@@ -605,13 +609,17 @@ def _search_json(
 ) -> dict | None:
     """Run a search, resolving which API path this board still answers on.
 
-    A 404 on a *search* is not an expired posting — it means the endpoint moved,
-    which is exactly what happened to /pc/v4/jobs. So it is never swallowed: we
-    move on to the next documented path, and if none answers, we say so.
+    A 404 or a 403 on a *search* is not an expired posting — it means the
+    endpoint moved, which is exactly what happened to /pc/v4/jobs (404, then 403
+    once the path was reassigned). So neither is swallowed: we move on to the
+    next documented path, and if none answers, we say so.
     """
     global _search_url
 
-    candidates = [_search_url] if _search_url else [f"{API_BASE}{path}" for path in SEARCH_PATHS]
+    known = [f"{API_BASE}{path}" for path in SEARCH_PATHS]
+    # A resolved endpoint is tried first, but can itself be retired mid-run, so
+    # the rest stay behind it as a fallback.
+    candidates = ([_search_url] + [b for b in known if b != _search_url]) if _search_url else known
     for base in candidates:
         payload, status = _request_json(
             _build_search_url(base, berufsfeld, keyword, location, radius, page, size), timeout
@@ -621,11 +629,12 @@ def _search_json(
                 _search_url = base
                 _log(f"[arbeitsagentur] Search endpoint: {base}")
             return payload
+        if status in (400, 401, 403):
+            _log(f"[arbeitsagentur] HTTP {status} from {base}; trying the next known path.")
+            continue
         if status == 404:
             continue  # path retired; try the next one
-        if status in (400, 401, 403):
-            _log(f"[arbeitsagentur] HTTP {status} from {base} — check the API key or parameters.")
-        return None
+        return None  # the server never answered: network, not routing
 
     _log(
         "[arbeitsagentur] None of the known search endpoints answered "
@@ -653,9 +662,8 @@ def _detail_json(enc: str, timeout: int) -> dict | None:
             _log(f"[arbeitsagentur] Detail endpoint: {url}")
             return payload
         if status in (400, 401, 403):
-            _log(f"[arbeitsagentur] HTTP {status} for {url.format(enc=enc)}")
-            return None
-    return None  # 404 everywhere: this posting is gone, or every path is
+            _log(f"[arbeitsagentur] HTTP {status} from {url.format(enc=enc)}; trying the next path.")
+    return None  # nothing answered: this posting is gone, or every path is
 
 
 def _build_search_url(
@@ -678,34 +686,99 @@ def _build_search_url(
     return f"{base}?{urllib.parse.urlencode(params)}"
 
 
+def _listings(payload: dict) -> list[dict]:
+    """The postings out of a search payload, whichever schema it uses.
+
+    /pc/v6 renamed the list to `ergebnisliste`; the older paths call it
+    `stellenangebote`. Reading only one of them is indistinguishable from a
+    category with no postings, which is how a working search produced empty
+    exports, so both names are accepted.
+    """
+    for key in ("ergebnisliste", "stellenangebote"):
+        value = payload.get(key)
+        if value:
+            return value
+    return []
+
+
+def _first(listing: dict, *keys: str) -> str:
+    """First non-empty of `keys`, stripped. Spellings differ per API version."""
+    for key in keys:
+        value = listing.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _refnr(listing: dict) -> str:
+    """A posting's reference number — `referenznummer` on v6, `refnr` before it."""
+    return _first(listing, "refnr", "referenznummer")
+
+
+def _pretty_region(value: str) -> str:
+    """`NORDRHEIN_WESTFALEN` -> `Nordrhein-Westfalen`.
+
+    v6 reports the federal state as an enum constant; the older paths reported
+    it as prose, and that is what lands in the CSV.
+    """
+    if not value or not value.isupper():
+        return value
+    return "-".join(part.capitalize() for part in value.split("_") if part)
+
+
+def _listing_location(listing: dict) -> str:
+    """Place of work, from either the v4 `arbeitsort` or the v6 `stellenlokationen`."""
+    places: list[dict] = []
+    arbeitsort = listing.get("arbeitsort")
+    if isinstance(arbeitsort, dict):
+        places.append(arbeitsort)
+    for lokation in listing.get("stellenlokationen") or []:
+        if isinstance(lokation, dict):
+            adresse = lokation.get("adresse")
+            places.append(adresse if isinstance(adresse, dict) else lokation)
+
+    for place in places:
+        ort = _first(place, "ort")
+        if ort:
+            return ort
+    for place in places:
+        region = _first(place, "region")
+        if region:
+            return _pretty_region(region)
+    return ""
+
+
+def _published_at(listing: dict) -> str:
+    published = _first(
+        listing, "aktuelleVeroeffentlichungsdatum", "datumErsteVeroeffentlichung"
+    )
+    if published:
+        return published
+    zeitraum = listing.get("veroeffentlichungszeitraum")
+    return _first(zeitraum, "von") if isinstance(zeitraum, dict) else ""
+
+
 def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> dict | None:
-    refnr = (listing.get("refnr") or "").strip()
+    refnr = _refnr(listing)
     if not refnr:
         return None
 
-    arbeitsort = listing.get("arbeitsort") or {}
-    ort = (arbeitsort.get("ort") or "").strip()
-    region = (arbeitsort.get("region") or "").strip()
-    location = ort or region
+    location = _listing_location(listing)
 
     enc = base64.b64encode(refnr.encode("utf-8")).decode("ascii")
     detail = _detail_json(enc, timeout=detail_timeout)
 
     description = (detail.get("stellenangebotsBeschreibung") if detail else "") or ""
-    company = (
-        (detail.get("firma") if detail else "")
-        or listing.get("arbeitgeber")
-        or ""
-    ).strip()
+    company = _first(detail or {}, "firma") or _first(listing, "arbeitgeber", "firma")
 
     email = _extract_email(description)
-    website = _clean_website(listing.get("externeUrl") or "")
+    website = _clean_website(_first(listing, "externeUrl", "externeURL"))
 
     return {
-        "title": (listing.get("titel") or listing.get("beruf") or "").strip(),
+        "title": _first(listing, "titel", "stellenangebotsTitel", "beruf", "hauptberuf"),
         "company": company,
         "location": location,
-        "published_at": (listing.get("aktuelleVeroeffentlichungsdatum") or "").strip(),
+        "published_at": _published_at(listing),
         "detail_url": PUBLIC_DETAIL_URL.format(refnr=urllib.parse.quote(refnr)),
         "category": category_label,
         "email": email,
@@ -781,7 +854,7 @@ def scrape_arbeitsagentur(
 
             if total_results is None:
                 total_results = payload.get("maxErgebnisse")
-            listings = payload.get("stellenangebote") or []
+            listings = _listings(payload)
 
             # The board renames its Berufsfeld values without notice, and a
             # renamed one filters every posting out while still answering 200.
@@ -800,7 +873,7 @@ def scrape_arbeitsagentur(
                 if payload is None:
                     break
                 total_results = payload.get("maxErgebnisse")
-                listings = payload.get("stellenangebote") or []
+                listings = _listings(payload)
 
             if debug_progress:
                 _log(
@@ -813,7 +886,7 @@ def scrape_arbeitsagentur(
                 break
 
             for listing in listings:
-                refnr = (listing.get("refnr") or "").strip()
+                refnr = _refnr(listing)
                 if not refnr or refnr in seen_refnrs:
                     continue
                 seen_refnrs.add(refnr)

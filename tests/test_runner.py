@@ -229,6 +229,24 @@ class ProbeTests(RunnerTestCase):
         self.assertEqual(probe["total"], 4321)
         self.assertIn("/pc/v6/jobs", probe["endpoint"])
 
+    def test_reports_how_many_postings_it_could_read(self):
+        # A count is not proof: the board once renamed the list of postings in
+        # its payload, and every export went empty while the probe still said
+        # the connection was fine. The probe reads the answer the way a run does.
+        payload = {"ergebnisliste": [{"referenznummer": "REF-1"}], "maxErgebnisse": 4321}
+        with mock.patch.object(self.aa, "_search_json", return_value=payload):
+            runner.run(self.probe_config(), self.events)
+        self.assertEqual(self.events_of("probe")[0]["parsed"], 2)  # unfiltered + Berufsfeld
+
+        unreadable = {"stellenangeboteNeu": [{"referenznummer": "REF-1"}], "maxErgebnisse": 4321}
+        with mock.patch.object(self.aa, "_search_json", return_value=unreadable):
+            runner.run(self.probe_config(), self.events)
+
+        probe = self.events_of("probe")[1]
+        self.assertTrue(probe["ok"])
+        self.assertEqual(probe["total"], 4321)
+        self.assertEqual(probe["parsed"], 0)
+
     def test_reports_failure_without_writing_any_files(self):
         with mock.patch.object(self.aa, "_search_json", return_value=None):
             self.assertEqual(runner.run(self.probe_config(), self.events), 1)
