@@ -175,13 +175,17 @@ def _draw_check(path: Path, color: str, size: int = 12) -> Path:
     return path
 
 
-def _draw_chevron(path: Path, color: str, size: int = 12, up: bool = False) -> Path:
+def _draw_chevron(
+    path: Path, color: str, size: int = 12, up: bool = False, right: bool = False
+) -> Path:
     image = _new_image(size)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.Antialiasing)
     painter.setPen(_pen(color, 1.3))
     s = size * GLYPH_SCALE
-    if up:
+    if right:
+        points = [QPointF(s * 0.38, s * 0.22), QPointF(s * 0.64, s * 0.5), QPointF(s * 0.38, s * 0.78)]
+    elif up:
         points = [QPointF(s * 0.22, s * 0.62), QPointF(s * 0.5, s * 0.36), QPointF(s * 0.78, s * 0.62)]
     else:
         points = [QPointF(s * 0.22, s * 0.38), QPointF(s * 0.5, s * 0.64), QPointF(s * 0.78, s * 0.38)]
@@ -278,6 +282,10 @@ def build_glyphs(tokens: Tokens) -> dict[str, str]:
         "dash": _draw_dash(directory / "dash.png", tokens.on_accent),
         "chevron_down": _draw_chevron(directory / "chevron-down.png", tokens.text_secondary),
         "chevron_up": _draw_chevron(directory / "chevron-up.png", tokens.text_secondary, up=True),
+        # The tree's collapsed branches; open ones reuse chevron_down.
+        "chevron_right": _draw_chevron(
+            directory / "chevron-right.png", tokens.text_secondary, right=True
+        ),
     }
     # Qt wants forward slashes in stylesheet urls, on every platform.
     return {key: str(value).replace("\\", "/") for key, value in glyphs.items()}
@@ -500,31 +508,35 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
 
     /* ---- Checkboxes ---- */
     QCheckBox {{ spacing: 9px; padding: 1px 0; }}
-    QCheckBox::indicator, QListWidget::indicator {{
+    QCheckBox::indicator, QListWidget::indicator, QTreeWidget::indicator {{
         width: 18px;
         height: 18px;
         border: 1px solid {t.border_strong};
         border-radius: 4px;
         background: {t.control};
     }}
-    QCheckBox::indicator:hover, QListWidget::indicator:hover {{ background: {t.control_hover}; }}
-    QCheckBox::indicator:checked, QListWidget::indicator:checked {{
+    QCheckBox::indicator:hover, QListWidget::indicator:hover,
+    QTreeWidget::indicator:hover {{ background: {t.control_hover}; }}
+    QCheckBox::indicator:checked, QListWidget::indicator:checked,
+    QTreeWidget::indicator:checked {{
         background: {t.accent};
         border-color: {t.accent};
         image: url("{glyphs['check']}");
     }}
-    QCheckBox::indicator:indeterminate, QListWidget::indicator:indeterminate {{
+    QCheckBox::indicator:indeterminate, QListWidget::indicator:indeterminate,
+    QTreeWidget::indicator:indeterminate {{
         background: {t.accent};
         border-color: {t.accent};
         image: url("{glyphs['dash']}");
     }}
-    QCheckBox::indicator:disabled, QListWidget::indicator:disabled {{
+    QCheckBox::indicator:disabled, QListWidget::indicator:disabled,
+    QTreeWidget::indicator:disabled {{
         background: {t.control_pressed};
         border-color: {t.border};
     }}
 
     /* ---- Lists and tables ---- */
-    QListWidget, QTableWidget {{
+    QListWidget, QTableWidget, QTreeWidget {{
         background: {t.control};
         border: 1px solid {t.border};
         border-radius: 6px;
@@ -533,6 +545,21 @@ def stylesheet(t: Tokens, glyphs: dict[str, str]) -> str:
     }}
     QListWidget::item {{ padding: 5px 6px; border-radius: 4px; }}
     QListWidget::item:hover {{ background: {t.subtle_hover}; }}
+
+    /* The category tree: same rows as a list, plus a branch arrow. Qt draws its
+       own dotted lines and platform arrows there unless every state is given an
+       image of ours. */
+    QTreeWidget::item {{ padding: 4px 6px; border-radius: 4px; }}
+    QTreeWidget::item:hover {{ background: {t.subtle_hover}; }}
+    QTreeWidget::branch {{ background: transparent; }}
+    QTreeWidget::branch:has-children:!has-siblings:closed,
+    QTreeWidget::branch:closed:has-children:has-siblings {{
+        image: url("{glyphs['chevron_right']}");
+    }}
+    QTreeWidget::branch:open:has-children:!has-siblings,
+    QTreeWidget::branch:open:has-children:has-siblings {{
+        image: url("{glyphs['chevron_down']}");
+    }}
     QTableWidget {{ gridline-color: transparent; }}
     QTableWidget::item {{ padding: 5px 8px; border-bottom: 1px solid {t.divider}; }}
     QTableWidget::item:selected {{ background: {t.subtle_hover}; color: {t.text}; }}

@@ -18,10 +18,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from PySide6.QtCore import QCoreApplication, QElapsedTimer, QEventLoop, QTimer
+    from PySide6.QtCore import QElapsedTimer, QEventLoop, QTimer
 
     from app.desktop import process as process_module
     from app.desktop.process import ScrapeProcess
+    from tests.qt_app import qt_app
 except ImportError as exc:  # pragma: no cover - PySide6 missing
     raise unittest.SkipTest(f"PySide6 unavailable: {exc}")
 
@@ -56,7 +57,9 @@ FAKE_WORKER = textwrap.dedent(
 class CancelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QCoreApplication.instance() or QCoreApplication([])
+        # Shared, because Qt allows one application object per process and the
+        # widget tests need it to be a widget-capable one.
+        cls.app = qt_app()
 
     def setUp(self):
         self._dir = tempfile.TemporaryDirectory()

@@ -37,6 +37,7 @@ paths.configure_environment()
 
 from app.desktop import exporters
 from app.desktop.pipeline import EXCLUDED_COMPANY_TERMS, SOURCE_FIELDS, SOURCE_ID_KEY, LeadCollector
+from app.scrapers import arbeitsagentur_labels as labels
 
 _PROGRESS_INTERVAL_S = 0.4
 
@@ -257,11 +258,13 @@ def _scrape_arbeitsagentur_target(config: dict, target: dict, on_job, skip_ids: 
     options = config.get("options", {})
     scrape_arbeitsagentur(
         category=target.get("category") or None,
+        berufsfelder=target.get("berufsfelder") or None,
         max_pages=int(options.get("max_pages") or 1),
         results_per_page=int(options.get("results_per_page") or 100),
         company_limit=options.get("company_limit") or None,
         listing_limit=options.get("listing_limit") or None,
         keyword=options.get("keyword") or None,
+        beruf=options.get("beruf") or None,
         location=options.get("location") or None,
         radius=options.get("radius") or None,
         on_job=lambda job: on_job(job, target.get("label") or ""),
@@ -333,32 +336,47 @@ def _facet_names(payload: dict) -> list[str]:
     return sorted(facets) if isinstance(facets, dict) else []
 
 
-def _facet_values(payload: dict, limit: int = 30) -> list[str]:
-    """Best-effort read of the occupation facet, whatever the board calls it.
+def _gloss_line(german: str, croatian: str, count) -> str:
+    """One facet value as a log line: the German value, its count, the gloss."""
+    line = f"{german} ({count})" if count is not None else german
+    return f"{line} — {croatian}" if croatian else line
 
-    The response shape is not pinned down anywhere we can rely on, so this
-    tolerates a dict of counts, a list of dicts, or a plain list, and gives up
-    quietly rather than breaking the probe.
+
+def _facet_values(
+    payload: dict, limit: int = 30, facet: str = "berufsfeld"
+) -> list[tuple[str, object]]:
+    """Best-effort read of one facet's values as (value, count) pairs, ordered by
+    how many postings each has.
+
+    `facet` is matched loosely because the board's own names for these have
+    moved before: "berufsfeld" is our category taxonomy, "beruf" the occupations
+    one level below it. The response shape is not pinned down anywhere we can
+    rely on, so this tolerates a dict of counts, a list of dicts, or a plain
+    list, and gives up quietly rather than breaking the probe.
     """
     facets = payload.get("facetten")
     if not isinstance(facets, dict):
         return []
 
-    for key, facet in facets.items():
-        if "beruf" not in key.casefold():
+    wanted = facet.casefold()
+    # An exact name wins over one that merely contains it, so asking for "beruf"
+    # does not answer with "berufsfeld".
+    for key in sorted(facets, key=lambda name: (name.casefold() != wanted, name)):
+        if wanted not in key.casefold():
             continue
-        counts = facet.get("counts") if isinstance(facet, dict) else facet
+        matched = facets[key]
+        counts = matched.get("counts") if isinstance(matched, dict) else matched
         if isinstance(counts, dict):
             ordered = sorted(counts.items(), key=lambda kv: -(kv[1] or 0))
-            return [f"{name} ({count})" for name, count in ordered[:limit]]
+            return [(str(name), count) for name, count in ordered[:limit]]
         if isinstance(counts, list):
-            out = []
+            out: list[tuple[str, object]] = []
             for item in counts[:limit]:
                 if isinstance(item, dict):
                     label = item.get("value") or item.get("name") or item.get("label")
-                    out.append(f"{label} ({item.get('count', '?')})")
+                    out.append((str(label), item.get("count")))
                 else:
-                    out.append(str(item))
+                    out.append((str(item), None))
             return out
     return []
 
@@ -404,6 +422,7 @@ def _probe(config: dict, events: _EventWriter) -> int:
         berufsfeld = groups[0]["berufsfelder"][0] if groups else None
 
     field_total = None
+    field_payload = None
     if berufsfeld:
         field_payload = arbeitsagentur._search_json(berufsfeld, None, None, None, 1, 1, timeout)
         field_total = (field_payload or {}).get("maxErgebnisse")
@@ -414,8 +433,20 @@ def _probe(config: dict, events: _EventWriter) -> int:
     names = _facet_names(payload)
     if names:
         events.emit("log", line=f"[arbeitsagentur] facetten: {', '.join(names)}")
-    for value in _facet_values(payload):
-        events.emit("log", line=f"[arbeitsagentur]   {value}")
+    for name, count in _facet_values(payload, facet="berufsfeld"):
+        gloss = labels.berufsfeld_hr(name)
+        events.emit("log", line=f"[arbeitsagentur]   {_gloss_line(name, gloss, count)}")
+
+    # The occupations inside the chosen field, spelled the way the board spells
+    # them: this is the list to copy a value from into "Zanimanje". Only the care
+    # and health ones are translated; the rest stay German, which is the half
+    # that has to be typed in anyway.
+    occupations = _facet_values(field_payload or {}, facet="beruf")
+    if occupations:
+        events.emit("log", line=f"[arbeitsagentur] zanimanja (Beruf) u {berufsfeld!r}:")
+        for name, count in occupations:
+            gloss = labels.beruf_hr(name)
+            events.emit("log", line=f"[arbeitsagentur]   {_gloss_line(name, gloss, count)}")
 
     dump_path = None
     output_dir = config.get("output_dir")

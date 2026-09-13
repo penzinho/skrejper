@@ -87,6 +87,47 @@ class ArbeitsagenturRunTests(RunnerTestCase):
         self.assertIn('"info@muster.de"', text)
         self.assertIn('"Zweite GmbH"', text)
 
+    def test_a_narrowed_category_and_an_occupation_reach_the_scraper(self):
+        # What the category tree and the "Zanimanje" field are for: one field of
+        # a category, and the board's own occupation name.
+        captured = {}
+
+        def fake_scrape(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        config = self.config(
+            targets=[
+                {
+                    "category": "gesundheit_pflege",
+                    "label": "Gesundheit, Medizin & Pflege",
+                    "berufsfelder": ["Krankenpflege, Rettungsdienst und Geburtshilfe"],
+                }
+            ],
+            options={"max_pages": 1, "beruf": "Gesundheits- und Krankenpfleger/in"},
+        )
+        with mock.patch("app.scrapers.arbeitsagentur.scrape_arbeitsagentur", fake_scrape):
+            self.assertEqual(runner.run(config, self.events), 0)
+
+        self.assertEqual(captured["category"], "gesundheit_pflege")
+        self.assertEqual(
+            captured["berufsfelder"], ["Krankenpflege, Rettungsdienst und Geburtshilfe"]
+        )
+        self.assertEqual(captured["beruf"], "Gesundheits- und Krankenpfleger/in")
+
+    def test_a_whole_category_passes_no_narrowing(self):
+        captured = {}
+
+        def fake_scrape(**kwargs):
+            captured.update(kwargs)
+            return []
+
+        with mock.patch("app.scrapers.arbeitsagentur.scrape_arbeitsagentur", fake_scrape):
+            runner.run(self.config(), self.events)
+
+        self.assertIsNone(captured["berufsfelder"])
+        self.assertIsNone(captured["beruf"])
+
     def test_remembers_seen_ids_and_skips_them_next_time(self):
         def fake_scrape(**kwargs):
             kwargs["on_job"](job("REF-1"))
@@ -246,6 +287,41 @@ class ProbeTests(RunnerTestCase):
         self.assertTrue(probe["ok"])
         self.assertEqual(probe["total"], 4321)
         self.assertEqual(probe["parsed"], 0)
+
+    def test_lists_the_occupations_of_the_chosen_field_with_translations(self):
+        # The occupations have to be typed in exactly as the board spells them,
+        # so the probe is where you copy them from — and German alone is a riddle.
+        def payloads(berufsfeld, keyword, *rest):
+            if berufsfeld:
+                return {
+                    "maxErgebnisse": 31044,
+                    "facetten": {
+                        "beruf": {
+                            "counts": {
+                                "Gesundheits- und Krankenpfleger/in": 7488,
+                                "Notfallsanitäter/in": 638,
+                                "Ein Beruf ohne Übersetzung": 5,
+                            }
+                        }
+                    },
+                }
+            return {"maxErgebnisse": 1_000_000}
+
+        with mock.patch.object(self.aa, "_search_json", payloads):
+            runner.run(
+                self.probe_config(berufsfeld="Krankenpflege, Rettungsdienst und Geburtshilfe"),
+                self.events,
+            )
+
+        lines = [event["line"] for event in self.events_of("log")]
+        self.assertTrue(any("zanimanja (Beruf)" in line for line in lines), lines)
+        self.assertIn(
+            "[arbeitsagentur]   Gesundheits- und Krankenpfleger/in (7488) — "
+            "medicinska sestra / tehničar (opća njega)",
+            lines,
+        )
+        # Untranslated values still have to be listed — they are still typeable.
+        self.assertIn("[arbeitsagentur]   Ein Beruf ohne Übersetzung (5)", lines)
 
     def test_reports_failure_without_writing_any_files(self):
         with mock.patch.object(self.aa, "_search_json", return_value=None):

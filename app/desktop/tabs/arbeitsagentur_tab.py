@@ -20,12 +20,15 @@ from PySide6.QtWidgets import (
 
 from app.desktop import settings
 from app.desktop.tabs.base import BaseScrapeTab
-from app.desktop.widgets import CheckList
+from app.desktop.widgets import CheckTree
 from app.scrapers.arbeitsagentur import get_arbeitsagentur_categories
+from app.scrapers.arbeitsagentur_labels import bilingual
 
 DEFAULTS = {
     "categories": [],
+    "berufsfelder": [],
     "keyword": "",
+    "beruf": "",
     "location": "",
     "radius": 0,
     "max_pages": 5,
@@ -71,15 +74,13 @@ class ArbeitsagenturTab(BaseScrapeTab):
         self.start_button.setEnabled(False)
         self.status_label.setText("Provjeravam vezu…")
 
-        # Test with a Berufsfeld from whatever is selected, so the probe reflects
-        # the run the user was about to start.
-        selected = self.categories.checked()
+        # Test with a Berufsfeld from whatever is ticked, so the probe reflects
+        # the run the user was about to start — and so its occupation list is the
+        # one they need.
         berufsfeld = None
-        if selected:
-            for item in self._categories:
-                if item["key"] == selected[0] and item["berufsfelder"]:
-                    berufsfeld = item["berufsfelder"][0]
-                    break
+        fields = self.categories.checked_fields()
+        if fields:
+            berufsfeld = fields[0]
 
         self._process.start(
             {
@@ -142,19 +143,29 @@ class ArbeitsagenturTab(BaseScrapeTab):
 
         selection = QGroupBox("Što skrejpamo")
         selection_layout = QVBoxLayout(selection)
-        selection_layout.addWidget(QLabel("Kategorije (Berufsfelder):"))
-        self.categories = CheckList()
-        self.categories.set_items(
+        selection_layout.addWidget(QLabel("Kategorije i podkategorije (Berufsfelder):"))
+        self.categories = CheckTree()
+        self.categories.set_groups(
             [
-                (item["key"], f"{item['label']}  ({len(item['berufsfelder'])} polja)")
+                (
+                    item["key"],
+                    f"{bilingual(item['label'], item['label_hr'])}  "
+                    f"({len(item['berufsfelder'])} polja)",
+                    [
+                        (field["name"], bilingual(field["name"], field["hr"]))
+                        for field in item["fields"]
+                    ],
+                )
                 for item in self._categories
             ]
         )
         selection_layout.addWidget(self.categories)
 
         hint = QLabel(
-            "Svaka kategorija je grupa njemačkih Berufsfelder polja i piše se u svoju "
-            "datoteku. Bez odabrane kategorije pretražuje se cijeli portal po pojmu."
+            "Hrvatski naziv je samo prijevod — portalu se šalje njemački. Otvori "
+            "kategoriju („Razgrani”) i odznači polja koja ne trebaš; svaka kategorija "
+            "piše u svoju datoteku. Bez odabira pretražuje se cijeli portal po pojmu "
+            "ili zanimanju."
         )
         hint.setObjectName("hint")
         hint.setWordWrap(True)
@@ -179,7 +190,19 @@ class ArbeitsagenturTab(BaseScrapeTab):
         search_form = QFormLayout(search)
         self.keyword = QLineEdit()
         self.keyword.setPlaceholderText("npr. Schweisser")
+        self.keyword.setToolTip(
+            "Slobodan tekst — traži po tekstu oglasa, pa hvata i nevezane oglase."
+        )
         search_form.addRow("Pojam:", self.keyword)
+        self.beruf = QLineEdit()
+        self.beruf.setPlaceholderText("npr. Gesundheits- und Krankenpfleger/in")
+        self.beruf.setToolTip(
+            "Točno zanimanje s portala (Beruf) — uže i preciznije od pojma. Više njih "
+            "odvoji znakom ; . Naziv mora biti točno kako ga portal piše: „Provjeri "
+            "vezu” ispiše zanimanja odabrane kategorije s prijevodom.\n"
+            "Npr. medicinske sestre: Gesundheits- und Krankenpfleger/in"
+        )
+        search_form.addRow("Zanimanje:", self.beruf)
         self.location = QLineEdit()
         self.location.setPlaceholderText("npr. München")
         search_form.addRow("Mjesto:", self.location)
@@ -234,9 +257,13 @@ class ArbeitsagenturTab(BaseScrapeTab):
 
     def load_settings(self) -> None:
         values = settings.load(self.settings_section, DEFAULTS)
-        if values["categories"]:
-            self.categories.set_checked([str(v) for v in values["categories"]])
+        if values["categories"] or values["berufsfelder"]:
+            self.categories.set_checked(
+                [str(v) for v in values["categories"]],
+                [str(v) for v in values["berufsfelder"]],
+            )
         self.keyword.setText(values["keyword"])
+        self.beruf.setText(values["beruf"])
         self.location.setText(values["location"])
         self.radius.setValue(values["radius"])
         self.max_pages.setValue(values["max_pages"])
@@ -253,8 +280,10 @@ class ArbeitsagenturTab(BaseScrapeTab):
         settings.save(
             self.settings_section,
             {
-                "categories": self.categories.checked(),
+                "categories": self.categories.checked_groups(),
+                "berufsfelder": self.categories.checked_fields(),
                 "keyword": self.keyword.text().strip(),
+                "beruf": self.beruf.text().strip(),
                 "location": self.location.text().strip(),
                 "radius": self.radius.value(),
                 "max_pages": self.max_pages.value(),
@@ -271,16 +300,28 @@ class ArbeitsagenturTab(BaseScrapeTab):
     # ---- run ------------------------------------------------------------
 
     def build_config(self) -> dict:
-        selected = self.categories.checked()
+        selected = self.categories.selection()
         keyword = self.keyword.text().strip()
-        if not selected and not keyword:
-            raise ValueError("Odaberi barem jednu kategoriju ili upiši pojam za pretragu.")
+        beruf = self.beruf.text().strip()
+        if not selected and not keyword and not beruf:
+            raise ValueError(
+                "Odaberi barem jednu kategoriju ili upiši pojam / zanimanje za pretragu."
+            )
 
-        labels = {item["key"]: item["label"] for item in self._categories}
+        group_labels = {item["key"]: item["label"] for item in self._categories}
         if selected:
-            targets = [{"category": key, "label": labels.get(key, key)} for key in selected]
+            targets = [
+                {
+                    "category": entry["key"],
+                    "label": group_labels.get(entry["key"], entry["key"]),
+                    # None means the whole category; a list narrows it to these
+                    # fields while the export keeps the category's name.
+                    "berufsfelder": entry["fields"],
+                }
+                for entry in selected
+            ]
         else:
-            targets = [{"category": None, "label": keyword}]
+            targets = [{"category": None, "label": beruf or keyword}]
 
         return {
             "source": "arbeitsagentur",
@@ -295,6 +336,7 @@ class ArbeitsagenturTab(BaseScrapeTab):
                 "listing_limit": self.listing_limit.value() or None,
                 "company_limit": self.company_limit.value() or None,
                 "keyword": keyword or None,
+                "beruf": beruf or None,
                 "location": self.location.text().strip() or None,
                 "radius": self.radius.value() or None,
             },

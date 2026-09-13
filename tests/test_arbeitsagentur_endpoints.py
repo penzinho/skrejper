@@ -210,8 +210,10 @@ class BerufsfeldFallbackTests(EndpointTestCase):
         """responses: callable(berufsfeld, keyword) -> payload."""
         calls = []
 
-        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout):
-            calls.append({"berufsfeld": berufsfeld, "keyword": keyword, "page": page})
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout, beruf=None):
+            calls.append(
+                {"berufsfeld": berufsfeld, "keyword": keyword, "page": page, "beruf": beruf}
+            )
             return responses(berufsfeld, keyword, page)
 
         with mock.patch.object(aa, "_search_json", fake_search), mock.patch.object(
@@ -229,7 +231,9 @@ class BerufsfeldFallbackTests(EndpointTestCase):
         jobs, calls = self.scrape(responses)
 
         self.assertEqual(calls[0]["berufsfeld"], "Hochbau")
-        self.assertEqual(calls[1], {"berufsfeld": None, "keyword": "Hochbau", "page": 1})
+        self.assertEqual(
+            calls[1], {"berufsfeld": None, "keyword": "Hochbau", "page": 1, "beruf": None}
+        )
         self.assertEqual(len(jobs), 1)
         self.assertEqual(jobs[0]["email"], "info@muster.de")
 
@@ -285,6 +289,132 @@ class BerufsfeldFallbackTests(EndpointTestCase):
 
         self.assertEqual([call["page"] for call in calls], [1, 2])
         self.assertTrue(all(call["keyword"] is None for call in calls), calls)
+
+
+class BerufFilterTests(EndpointTestCase):
+    """`beruf` is the board's occupation facet, one level below Berufsfeld:
+    "Gesundheits- und Krankenpfleger/in" rather than all of "Krankenpflege,
+    Rettungsdienst und Geburtshilfe"."""
+
+    LISTING = {"referenznummer": "REF-1", "stellenangebotsTitel": "Pflegefachkraft"}
+
+    def scrape(self, **kwargs):
+        calls = []
+
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout, beruf=None):
+            calls.append({"berufsfeld": berufsfeld, "keyword": keyword, "beruf": beruf})
+            return {"ergebnisliste": [self.LISTING] if page == 1 else [], "maxErgebnisse": 1}
+
+        with mock.patch.object(aa, "_search_json", fake_search), mock.patch.object(
+            aa, "_detail_json", return_value=DETAIL_PAYLOAD
+        ):
+            jobs = aa.scrape_arbeitsagentur(max_pages=1, **kwargs)
+        return jobs, calls
+
+    def test_the_occupation_reaches_the_query(self):
+        _jobs, calls = self.scrape(beruf="Gesundheits- und Krankenpfleger/in")
+
+        self.assertEqual(calls, [{"berufsfeld": None, "keyword": None,
+                                  "beruf": "Gesundheits- und Krankenpfleger/in"}])
+
+    def test_several_occupations_are_queried_one_by_one(self):
+        # The board answers a repeated `beruf` parameter with nothing at all, so
+        # each occupation gets its own search.
+        _jobs, calls = self.scrape(beruf="Krankenschwester/-pfleger; Pflegeassistent/in")
+
+        self.assertEqual(
+            [call["beruf"] for call in calls],
+            ["Krankenschwester/-pfleger", "Pflegeassistent/in"],
+        )
+
+    def test_a_list_works_as_well_as_a_string(self):
+        _jobs, calls = self.scrape(beruf=["Altenpfleger/in", "Altenpflegehelfer/in"])
+
+        self.assertEqual([call["beruf"] for call in calls],
+                         ["Altenpfleger/in", "Altenpflegehelfer/in"])
+
+    def test_the_occupation_replaces_the_category(self):
+        # Each occupation sits in exactly one Berufsfeld, so intersecting the two
+        # would only add queries that match nothing.
+        _jobs, calls = self.scrape(category="gesundheit_pflege", beruf="Altenpfleger/in")
+
+        self.assertEqual(len(calls), 1, calls)
+        self.assertIsNone(calls[0]["berufsfeld"])
+        self.assertTrue(
+            any("Zanimanja su uža" in line for line in self.logs),
+            f"narrowing to the occupation must be visible, got: {self.logs}",
+        )
+
+    def test_the_category_label_still_lands_on_the_row(self):
+        jobs, _calls = self.scrape(category="gesundheit_pflege", beruf="Altenpfleger/in")
+
+        self.assertEqual(jobs[0]["category"], "Gesundheit, Medizin & Pflege")
+
+    def test_a_misspelled_occupation_says_so_instead_of_widening_the_search(self):
+        calls = []
+
+        def empty(berufsfeld, keyword, location, radius, page, size, timeout, beruf=None):
+            calls.append(beruf)
+            return {"ergebnisliste": [], "maxErgebnisse": 0}
+
+        with mock.patch.object(aa, "_search_json", empty):
+            jobs = aa.scrape_arbeitsagentur(max_pages=1, beruf="Krankenpflegerin")
+
+        self.assertEqual(jobs, [])
+        self.assertEqual(calls, ["Krankenpflegerin"], "no free-text retry for an occupation")
+        self.assertTrue(
+            any("provjerite točan naziv" in line for line in self.logs), self.logs
+        )
+
+    def test_the_occupation_is_sent_as_one_parameter(self):
+        url = aa._build_search_url(
+            "https://example.invalid/jobs", None, None, None, None, 1, 100,
+            "Gesundheits- und Krankenpfleger/in",
+        )
+
+        self.assertIn("beruf=Gesundheits-+und+Krankenpfleger%2Fin", url)
+        self.assertEqual(url.count("beruf="), 1)
+
+
+class NarrowedCategoryTests(EndpointTestCase):
+    """A category can be run whole or narrowed to some of its Berufsfelder —
+    "Gesundheit" has eleven fields and a run for nurses needs one of them."""
+
+    def scrape(self, **kwargs):
+        calls = []
+
+        def fake_search(berufsfeld, keyword, location, radius, page, size, timeout, beruf=None):
+            calls.append(berufsfeld)
+            # One result per field: an empty field would trigger the free-text
+            # retry and add calls that say nothing about the narrowing.
+            listing = {"referenznummer": f"REF-{len(calls)}"}
+            return {"ergebnisliste": [listing], "maxErgebnisse": 1}
+
+        with mock.patch.object(aa, "_search_json", fake_search), mock.patch.object(
+            aa, "_detail_json", return_value=DETAIL_PAYLOAD
+        ):
+            jobs = aa.scrape_arbeitsagentur(max_pages=1, **kwargs)
+        return jobs, calls
+
+    def test_only_the_listed_fields_are_queried(self):
+        _jobs, calls = self.scrape(
+            category="gesundheit_pflege",
+            berufsfelder=["Krankenpflege, Rettungsdienst und Geburtshilfe", "Altenpflege"],
+        )
+
+        self.assertEqual(
+            calls, ["Krankenpflege, Rettungsdienst und Geburtshilfe", "Altenpflege"]
+        )
+
+    def test_the_whole_category_still_runs_without_a_narrowing(self):
+        _jobs, calls = self.scrape(category="gesundheit_pflege")
+
+        self.assertEqual(len(calls), 11, calls)
+
+    def test_an_empty_narrowing_means_the_whole_category(self):
+        _jobs, calls = self.scrape(category="gesundheit_pflege", berufsfelder=[])
+
+        self.assertEqual(len(calls), 11, calls)
 
 
 class PayloadSchemaTests(EndpointTestCase):

@@ -37,6 +37,8 @@ import urllib.parse
 import urllib.request
 from typing import Callable
 
+from app.scrapers import arbeitsagentur_labels as labels
+
 API_BASE = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service"
 
 # The board versions its paths and retires old ones without notice: /pc/v4/jobs
@@ -484,9 +486,24 @@ def _slugify(value: str) -> str:
 
 
 def get_arbeitsagentur_categories() -> list[dict]:
-    """The broad, user-facing categories (groups of Berufsfelder)."""
+    """The broad, user-facing categories (groups of Berufsfelder).
+
+    Every German name comes with its Croatian gloss (`label_hr`, and `hr` per
+    field), because the German value is what the board needs but not what the
+    person ticking the box reads. `fields` is the same list as `berufsfelder`,
+    translated — a category can be run whole or narrowed to some of its fields.
+    """
     return [
-        {"key": key, "label": value["label"], "berufsfelder": list(value["berufsfelder"])}
+        {
+            "key": key,
+            "label": value["label"],
+            "label_hr": labels.GROUP_LABELS_HR.get(key, ""),
+            "berufsfelder": list(value["berufsfelder"]),
+            "fields": [
+                {"name": name, "hr": labels.berufsfeld_hr(name)}
+                for name in value["berufsfelder"]
+            ],
+        }
         for key, value in ARBEITSAGENTUR_GROUPS.items()
     ]
 
@@ -526,6 +543,19 @@ def _resolve_berufsfelder(category: str | None) -> tuple[list[str], str]:
 
     _log(f"[arbeitsagentur] Unknown category '{category}', passing through as Berufsfeld.")
     return [candidate], candidate
+
+
+def _split_berufe(beruf: str | list[str] | None) -> list[str]:
+    """The occupations to query, from a list or a semicolon-separated string.
+
+    The board's names contain commas ("Fachkrankenpfleger/in - Intensivpflege")
+    only rarely but slashes and dashes always, so `;` is the one separator that
+    cannot appear inside a name.
+    """
+    if not beruf:
+        return []
+    values = beruf if isinstance(beruf, list) else str(beruf).split(";")
+    return [value.strip() for value in values if value and value.strip()]
 
 
 def _is_valid_email_candidate(value: str) -> bool:
@@ -606,6 +636,7 @@ def _search_json(
     page: int,
     size: int,
     timeout: int,
+    beruf: str | None = None,
 ) -> dict | None:
     """Run a search, resolving which API path this board still answers on.
 
@@ -622,7 +653,8 @@ def _search_json(
     candidates = ([_search_url] + [b for b in known if b != _search_url]) if _search_url else known
     for base in candidates:
         payload, status = _request_json(
-            _build_search_url(base, berufsfeld, keyword, location, radius, page, size), timeout
+            _build_search_url(base, berufsfeld, keyword, location, radius, page, size, beruf),
+            timeout,
         )
         if payload is not None:
             if _search_url != base:
@@ -674,10 +706,16 @@ def _build_search_url(
     radius: int | None,
     page: int,
     size: int,
+    beruf: str | None = None,
 ) -> str:
     params: list[tuple[str, str]] = [("page", str(page)), ("size", str(size))]
     if berufsfeld:
         params.append(("berufsfeld", berufsfeld))
+    if beruf:
+        # One level below Berufsfeld: the board's occupation facet. Several are
+        # passed as one semicolon-joined value — repeating the parameter makes
+        # the board answer with nothing at all.
+        params.append(("beruf", beruf))
     if keyword:
         params.append(("was", keyword))
     if location:
@@ -790,10 +828,12 @@ def _enrich_listing(listing: dict, category_label: str, detail_timeout: int) -> 
 
 def scrape_arbeitsagentur(
     category: str | None = None,
+    berufsfelder: list[str] | None = None,
     max_pages: int = 1,
     company_limit: int | None = None,
     results_per_page: int = MAX_PAGE_SIZE,
     keyword: str | None = None,
+    beruf: str | list[str] | None = None,
     location: str | None = None,
     radius: int | None = None,
     listing_limit: int | None = None,
@@ -804,7 +844,17 @@ def scrape_arbeitsagentur(
 
     * `category`   -> a broad group key (see `ARBEITSAGENTUR_GROUPS`) or a single
       Berufsfeld; a group is scraped by querying each of its Berufsfelder in turn.
+    * `berufsfelder` -> only these fields of the category, instead of all of them
+      (the category then only names the export). This is how a group is narrowed
+      to "just the nursing field" without splitting it into separate runs.
     * `keyword`    -> free-text search (`was`), e.g. a job title.
+    * `beruf`      -> one or more of the board's *Berufe* (occupations), the facet
+      one level below Berufsfeld — e.g. "Gesundheits- und Krankenpfleger/in"
+      instead of the whole "Krankenpflege, Rettungsdienst und Geburtshilfe"
+      field. Names must match the board's exactly; a list or a `;`-joined
+      string. This *replaces* the Berufsfeld filter, because it is narrower:
+      each occupation belongs to exactly one field, so intersecting them would
+      only add empty queries.
     * `location`   -> place/PLZ (`wo`); `radius` is the km search radius.
     * `max_pages`  -> result pages (of `results_per_page`) to walk *per Berufsfeld*.
     * `company_limit`  -> stop after this many distinct employers (across the group).
@@ -823,17 +873,27 @@ def scrape_arbeitsagentur(
     detail_delay_ms = int(os.getenv("ARBEITSAGENTUR_DETAIL_DELAY_MS", "300"))
     debug_progress = os.getenv("ARBEITSAGENTUR_DEBUG_PROGRESS", "false") == "true"
 
-    berufsfelder, category_label = _resolve_berufsfelder(category)
-    # A keyword/board-wide sweep has no Berufsfeld filter; represent it as one
-    # query with berufsfeld=None.
-    queries: list[str | None] = berufsfelder or [None]
+    resolved, category_label = _resolve_berufsfelder(category)
+    fields = [field for field in (berufsfelder or []) if field] or resolved
+    berufe = _split_berufe(beruf)
+    # Each query is one (Berufsfeld, Beruf) pair. A keyword/board-wide sweep
+    # filters by neither, so it is the pair (None, None).
+    if berufe:
+        if fields:
+            _log(
+                f"[arbeitsagentur] Zanimanja su uža od kategorije, pa se traži samo po "
+                f"njima: {', '.join(berufe)}."
+            )
+        queries: list[tuple[str | None, str | None]] = [(None, one) for one in berufe]
+    else:
+        queries = [(field, None) for field in fields] or [(None, None)]
 
     jobs: list[dict] = []
     seen_refnrs: set[str] = set()
     seen_company_keys: set[str] = set()
     processed = 0  # listings whose detail we fetched (== detail requests)
 
-    for berufsfeld in queries:
+    for berufsfeld, occupation in queries:
         total_results: int | None = None
         # True once the Berufsfeld matched nothing and we switched to free text.
         fell_back = False
@@ -847,9 +907,13 @@ def scrape_arbeitsagentur(
                 page,
                 page_size,
                 search_timeout,
+                beruf=occupation,
             )
             if payload is None:
-                _log(f"[arbeitsagentur] No response for {berufsfeld!r} page {page}; skipping rest.")
+                _log(
+                    f"[arbeitsagentur] No response for {occupation or berufsfeld!r} "
+                    f"page {page}; skipping rest."
+                )
                 break
 
             if total_results is None:
@@ -861,6 +925,15 @@ def scrape_arbeitsagentur(
             # Retry the same term as a free-text search rather than reporting an
             # empty category — but say so, because `was` matches the advert text
             # instead of the structured occupation, so the scope is wider.
+            # An occupation is typed by hand, so an empty one is almost always a
+            # misspelling rather than a board with no such jobs. Say so: the
+            # free-text retry below would quietly widen the search instead.
+            if not listings and page == 1 and occupation:
+                _log(
+                    f"[arbeitsagentur] beruf={occupation!r} vratio 0 oglasa — provjerite "
+                    "točan naziv zanimanja („Provjeri vezu” ispisuje nazive kategorije)."
+                )
+
             if not listings and page == 1 and berufsfeld and not keyword and not fell_back:
                 _log(
                     f"[arbeitsagentur] berufsfeld={berufsfeld!r} vratio 0 oglasa; "
@@ -877,7 +950,7 @@ def scrape_arbeitsagentur(
 
             if debug_progress:
                 _log(
-                    f"[arbeitsagentur] berufsfeld={berufsfeld!r} page {page} "
+                    f"[arbeitsagentur] berufsfeld={berufsfeld!r} beruf={occupation!r} page {page} "
                     f"listings={len(listings)} max={total_results} "
                     f"processed={processed} jobs={len(jobs)}"
                 )
