@@ -100,7 +100,18 @@ class ArbeitsagenturTab(BaseScrapeTab):
         total = event.get("total")
         field, field_total = event.get("berufsfeld"), event.get("berufsfeld_total")
 
-        if field and not field_total:
+        if total and not event.get("parsed"):
+            # The board answers and counts postings, but we could not read a
+            # single one out of the payload — its schema moved under us. Without
+            # this the probe would report a healthy connection while every
+            # export came out empty.
+            message = (
+                f"Veza radi ({total} oglasa), ali nijedan oglas nije pročitan iz "
+                "odgovora — format odgovora se promijenio."
+            )
+            self._files = [event["dump"]] if event.get("dump") else []
+            self.open_button.setEnabled(bool(self._files))
+        elif field and not field_total:
             # The interesting failure: the board answers, but our category names
             # no longer match anything it indexes.
             message = (

@@ -109,16 +109,35 @@ class SearchEndpointTests(EndpointTestCase):
             f"a dead API must not be silent, got: {self.logs}",
         )
 
-    def test_an_auth_error_stops_instead_of_trying_other_paths(self):
-        def unauthorized(request, timeout=None):
+    def test_a_forbidden_path_is_skipped_like_a_retired_one(self):
+        # A retired path does not stay a 404 forever: /pc/v4/jobs now answers
+        # 403. Stopping there would hide a working path further down the list.
+        payload, calls = self.search({"/pc/v4/app/jobs": SEARCH_PAYLOAD})
+        self.assertEqual(payload, SEARCH_PAYLOAD)
+
+        def forbidden(request, timeout=None):
             raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, None)
 
-        with mock.patch.object(aa.urllib.request, "urlopen", unauthorized):
+        self.setUp()  # forget the resolved endpoint
+        with mock.patch.object(aa.urllib.request, "urlopen", forbidden):
             payload = aa._search_json("Hochbau", None, None, None, 1, 100, 10)
 
         self.assertIsNone(payload)
         self.assertTrue(any("HTTP 403" in line for line in self.logs), self.logs)
+        self.assertTrue(any("has moved" in line for line in self.logs), self.logs)
         self.assertIsNone(aa._search_url)
+
+    def test_a_resolved_path_that_dies_mid_run_falls_through(self):
+        # The endpoint can be retired between one page and the next; the rest of
+        # the known paths must still be there to catch it.
+        self.search({"/pc/v6/jobs": SEARCH_PAYLOAD})
+        self.assertEqual(aa._search_url, f"{aa.API_BASE}/pc/v6/jobs")
+
+        payload, calls = self.search({"/pc/v4/app/jobs": SEARCH_PAYLOAD})
+
+        self.assertEqual(payload, SEARCH_PAYLOAD)
+        self.assertEqual(aa._search_url, f"{aa.API_BASE}/pc/v4/app/jobs")
+        self.assertIn("/pc/v6/jobs", calls[0])
 
     def test_query_parameters_survive_the_indirection(self):
         calls = []
@@ -266,6 +285,94 @@ class BerufsfeldFallbackTests(EndpointTestCase):
 
         self.assertEqual([call["page"] for call in calls], [1, 2])
         self.assertTrue(all(call["keyword"] is None for call in calls), calls)
+
+
+class PayloadSchemaTests(EndpointTestCase):
+    """/pc/v6 answers 200 with a payload shaped differently from /pc/v4: the
+    postings live under `ergebnisliste`, and their fields are spelled
+    differently. Reading only the old names turned a healthy board into empty
+    exports — every category "returned 0 oglasa" and fell back to a free-text
+    search that also read as empty."""
+
+    V6_LISTING = {
+        "referenznummer": "REF-V6",
+        "stellenangebotsTitel": "Pflegefachkraft (m/w/d) Altenpflege",
+        "hauptberuf": "Altenpfleger/in",
+        "firma": "Pflege GmbH",
+        "stellenlokationen": [
+            {"adresse": {"plz": "32545", "ort": "Bad Oeynhausen", "region": "NORDRHEIN_WESTFALEN"}}
+        ],
+        "datumErsteVeroeffentlichung": "2026-09-06",
+        "externeURL": "https://pflege-gmbh.example/karriere",
+    }
+
+    def test_v6_postings_are_found_in_the_payload(self):
+        payload = {"ergebnisliste": [self.V6_LISTING], "maxErgebnisse": 30971}
+
+        self.assertEqual(aa._listings(payload), [self.V6_LISTING])
+
+    def test_the_older_payload_shape_still_reads(self):
+        payload = {"stellenangebote": [{"refnr": "REF-1"}], "maxErgebnisse": 1}
+
+        self.assertEqual(aa._listings(payload), [{"refnr": "REF-1"}])
+
+    def test_a_v6_listing_fills_every_column(self):
+        with mock.patch.object(aa, "_detail_json", return_value=DETAIL_PAYLOAD):
+            job = aa._enrich_listing(dict(self.V6_LISTING), "Zdravstvo", 10)
+
+        self.assertEqual(job["refnr"], "REF-V6")
+        self.assertEqual(job["title"], "Pflegefachkraft (m/w/d) Altenpflege")
+        self.assertEqual(job["company"], "Muster")
+        self.assertEqual(job["location"], "Bad Oeynhausen")
+        self.assertEqual(job["published_at"], "2026-09-06")
+        self.assertEqual(job["email"], "info@muster.de")
+        self.assertEqual(job["employer_website"], "https://pflege-gmbh.example/karriere")
+        self.assertIn("REF-V6", job["detail_url"])
+
+    def test_the_employer_falls_back_to_the_listing(self):
+        # Expired postings answer no detail at all; the search result still
+        # names the employer.
+        with mock.patch.object(aa, "_detail_json", return_value=None):
+            job = aa._enrich_listing(dict(self.V6_LISTING), "Zdravstvo", 10)
+
+        self.assertEqual(job["company"], "Pflege GmbH")
+
+    def test_a_listing_without_a_town_falls_back_to_the_state(self):
+        listing = dict(
+            self.V6_LISTING,
+            stellenlokationen=[{"adresse": {"region": "NORDRHEIN_WESTFALEN"}}],
+        )
+        with mock.patch.object(aa, "_detail_json", return_value=DETAIL_PAYLOAD):
+            job = aa._enrich_listing(listing, "Zdravstvo", 10)
+
+        # The enum constant is what v6 reports; the CSV carries prose.
+        self.assertEqual(job["location"], "Nordrhein-Westfalen")
+
+    def test_the_publication_date_falls_back_to_the_period(self):
+        listing = dict(self.V6_LISTING)
+        del listing["datumErsteVeroeffentlichung"]
+        listing["veroeffentlichungszeitraum"] = {"von": "2026-09-01"}
+        with mock.patch.object(aa, "_detail_json", return_value=DETAIL_PAYLOAD):
+            job = aa._enrich_listing(listing, "Zdravstvo", 10)
+
+        self.assertEqual(job["published_at"], "2026-09-01")
+
+    def test_a_v6_search_is_scraped_end_to_end(self):
+        live = {
+            "/pc/v6/jobs": {"ergebnisliste": [self.V6_LISTING], "maxErgebnisse": 1},
+            "/pc/v4/jobdetails": DETAIL_PAYLOAD,
+        }
+        with mock.patch.object(aa.urllib.request, "urlopen", router(live, [])):
+            jobs = aa.scrape_arbeitsagentur(category="Altenpflege", max_pages=1)
+
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]["refnr"], "REF-V6")
+        self.assertEqual(
+            self.logs,
+            [f"[arbeitsagentur] Search endpoint: {aa.API_BASE}/pc/v6/jobs",
+             f"[arbeitsagentur] Detail endpoint: {aa.API_BASE}{aa.DETAIL_PATHS[0]}"],
+            "a v6 payload must not look like an empty category",
+        )
 
 
 class ScrapeIntegrationTests(EndpointTestCase):

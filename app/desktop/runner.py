@@ -335,6 +335,11 @@ def _probe(config: dict, events: _EventWriter) -> int:
         return 1
 
     total = payload.get("maxErgebnisse")
+    # A count alone isn't proof the run will produce rows: the board renamed the
+    # list of postings in its payload once (`stellenangebote` -> `ergebnisliste`)
+    # and every export went empty while the probe still said "veza radi". So the
+    # probe parses the answer the way a real run does and reports what it got.
+    parsed = len(arbeitsagentur._listings(payload))
     endpoint = arbeitsagentur._search_url or ""
 
     # Which Berufsfeld to test with: whatever the tab had selected, else the
@@ -348,6 +353,7 @@ def _probe(config: dict, events: _EventWriter) -> int:
     if berufsfeld:
         field_payload = arbeitsagentur._search_json(berufsfeld, None, None, None, 1, 1, timeout)
         field_total = (field_payload or {}).get("maxErgebnisse")
+        parsed += len(arbeitsagentur._listings(field_payload or {}))
         _emit_line = f"[arbeitsagentur] berufsfeld={berufsfeld!r} -> {field_total} oglasa"
         events.emit("log", line=_emit_line)
 
@@ -378,6 +384,7 @@ def _probe(config: dict, events: _EventWriter) -> int:
         ok=True,
         endpoint=endpoint,
         total=total,
+        parsed=parsed,
         berufsfeld=berufsfeld,
         berufsfeld_total=field_total,
         dump=dump_path,
