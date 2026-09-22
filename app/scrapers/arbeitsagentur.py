@@ -30,6 +30,7 @@ import html
 import json
 import os
 import re
+import ssl
 import time
 import unicodedata
 import urllib.error
@@ -37,9 +38,19 @@ import urllib.parse
 import urllib.request
 from typing import Callable
 
+import certifi
+
 from app.scrapers import arbeitsagentur_labels as labels
 
 API_BASE = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service"
+
+# The packaged desktop app (PyInstaller) doesn't reliably see the OS trust
+# store on every machine it runs on, which surfaces as "unable to get local
+# issuer certificate" even though the board's certificate is fine. Verifying
+# against certifi's bundled CA list instead of the platform default sidesteps
+# that — it ships with the app and does not depend on the host being set up
+# correctly.
+_SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 
 # The board versions its paths and retires old ones without notice: /pc/v4/jobs
 # answered for a long time and now 404s. Both documented search paths are tried
@@ -606,7 +617,7 @@ def _request_json(url: str, timeout: int, attempts: int = 3) -> tuple[dict | Non
             headers={"X-API-Key": API_KEY, "User-Agent": USER_AGENT, "Accept": "application/json"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with urllib.request.urlopen(request, timeout=timeout, context=_SSL_CONTEXT) as response:
                 return json.loads(response.read().decode("utf-8")), response.status
         except urllib.error.HTTPError as exc:
             last_error = exc

@@ -43,7 +43,7 @@ class FakeResponse:
 def router(live_paths: dict, calls: list):
     """urlopen stand-in: serves live_paths, 404s everything else."""
 
-    def _urlopen(request, timeout=None):
+    def _urlopen(request, timeout=None, context=None):
         url = request.full_url
         calls.append(url)
         for fragment, payload in live_paths.items():
@@ -115,7 +115,7 @@ class SearchEndpointTests(EndpointTestCase):
         payload, calls = self.search({"/pc/v4/app/jobs": SEARCH_PAYLOAD})
         self.assertEqual(payload, SEARCH_PAYLOAD)
 
-        def forbidden(request, timeout=None):
+        def forbidden(request, timeout=None, context=None):
             raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, None)
 
         self.setUp()  # forget the resolved endpoint
